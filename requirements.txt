@@ -1,0 +1,4 @@
+requests
+inquirer
+texttable
+keyring
