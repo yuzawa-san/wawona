@@ -1,4 +1,4 @@
-requests
-inquirer
-texttable
-keyring
+requests==2.31.0
+inquirer==3.2.4
+texttable==1.7.0
+keyring==24.3.1
