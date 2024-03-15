@@ -3,7 +3,7 @@
 by @yuzawa-san
 
 Easily make office reservations in sequoia from the command line.
-The current app flow takes many clicks to view followers and book each day, so I made a tool.
+This tool is specifically for viewing the next two week's bookings from coworkers that you have followed, and then for booking multiple days at a time.
 
 ## Setup
 
