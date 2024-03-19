@@ -5,16 +5,16 @@ by @yuzawa-san
 Easily make office reservations in sequoia from the command line.
 This tool is specifically for viewing the next two week's bookings from coworkers that you have followed, and then for booking multiple days at a time.
 
-## Setup
+## Install
 
 - python 3 must be installed
-- (optional) use a virtualenv:
-- install dependencies: `pip install -r requirements.txt`
+- (recommended) use a virtualenv:
+- install dependencies: `python setup.py install`
 
 ## Usage 
 
 - (optional) enter your virtualenv
-- run it: `python wawona.py`
+- run it: `./wawona`
 - provide email and password (and MFA token), you will be prompted to re-authorise periodically
 - view reservations
 - optionally book days (or not, just hit return to exit)
