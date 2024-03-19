@@ -61,9 +61,14 @@ def get_token(refresh=False):
         password = getpass("Password for %s: " % email)
     response = check(requests.post("https://hrx-backend.sequoia.com/idm/users/login", headers=HEADERS, json={"email":email,"password":password,"browserHash":BROWSER_HASH,"userType":"employee"}))
     login_json = response.json()
-    user_details = login_json["data"]["userDetails"]
+    login_data = login_json["data"]
+    user_details = login_data["userDetails"]
     token = user_details["apiToken"]
     if user_details["oktaStatus"] == "MFA_CHALLENGE":
+        factors = login_data.get("factors")
+        if factors:
+            factor = factors[0]
+            print("Using MFA %s %s" % (factor.get("factorType","unknown"), factor.get("profile",{}).get("phoneNumber")))
         mfa_code = input("MFA Code: ")
         headers = {"apitoken": token}
         headers.update(HEADERS)
