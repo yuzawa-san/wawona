@@ -14,7 +14,7 @@ This tool is specifically for viewing the next two week's bookings from coworker
 ## Usage 
 
 - (optional) enter your virtualenv
-- run it: `./wawona`
+- run it: `wawona`
 - provide email and password (and MFA token), you will be prompted to re-authorise periodically
 - view reservations
 - optionally book days (or not, just hit return to exit)
