@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wawona"
+version = "0.0.2"
+authors = [
+  { name="yuzawa-san", email="jtyuzawa@gmail.com" },
+]
+license = {file = "LICENSE"}
+description = "Easily make office reservations in sequoia from the command line."
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3.8",
+  "Operating System :: OS Independent",
+]
+dependencies = [
+  "requests>=2.31.0",
+  "inquirer>=3.2.4",
+  "texttable>=1.7.0",
+  "keyring>=24.3.1"
+]
+
+[project.scripts]
+wawona = "wawona.wawona:run"
+
+[project.urls]
+Homepage = "https://github.com/yuzawa-san/wawona"
+Changelog = "https://github.com/yuzawa-san/wawona/releases"
+Issues = "https://github.com/yuzawa-san/wawona/issues"
+CI = "https://github.com/yuzawa-san/wawona/actions"
