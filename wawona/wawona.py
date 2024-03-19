@@ -27,6 +27,7 @@ HEADERS = {
 }
 KEYRING_EMAIL="login.sequoia.com"
 KEYRING_TOKEN="hrx-backend.sequoia.com"
+CHECK_MARK = "\u2705"
 
 def get_config():
     if not isfile(config_file):
@@ -131,6 +132,41 @@ def add_reservations(token, location_id, dates):
         })
     response = check(requests.post("https://hrx-backend.sequoia.com/rtw/resv/client/reservations", headers=token_headers(token), json=body))
 
+def print_weeks(weeks, today, booked, followings, choices, defaults):
+    rows = []
+    for week in weeks:
+        label = "WEEK OF %s" % week[0].strftime('%d %b').upper()
+        header = [label]
+        booking_row = ["Me"]
+        rows.append(header)
+        rows.append(booking_row)
+        for day in week:
+            day_label = day.strftime('%a\n%d')
+            if day == today:
+                day_label = "%s*" % day_label
+            header.append(day_label)
+            is_booked = day in booked
+            booking_row.append(CHECK_MARK if is_booked else "")
+            if day >= today:
+                choices.append((day.strftime('%a %d %b'), day))
+                if is_booked:
+                    defaults.append(day)
+        for name, days in followings:
+            user_row = [name]
+            add_row = False
+            for day in week:
+                if day in days:
+                    entry = CHECK_MARK
+                    add_row = True
+                else:
+                    entry = ""
+                user_row.append(entry)
+            if add_row:
+                rows.append(user_row)
+    t = Texttable(max_width=0)
+    t.add_rows(rows, header=False)
+    print(t.draw())
+
 def run():
     token = get_token()
     today = date.today()
@@ -155,36 +191,7 @@ def run():
         weekday = day.weekday()
         if weekday < 5:
             weeks[day_offset // 7].append(day)
-    rows = []
-    for week in weeks:
-        header = ["Week of %s" % week[0].strftime('%d %b')]
-        booking_row = ["Me"]
-        rows.append(header)
-        rows.append(booking_row)
-        for day in week:
-            header.append(day.strftime('%a\n%d'))
-            is_booked = day in booked
-            booking_row.append("x" if is_booked else "")
-            if day >= today:
-                choices.append((day.strftime('%a %d %b'), day))
-                if is_booked:
-                    defaults.append(day)
-        for name, days in followings:
-            user_row = [name]
-            add_row = False
-            for day in week:
-                if day in days:
-                    entry = "x"
-                    add_row = True
-                else:
-                    entry = ""
-                user_row.append(entry)
-            if add_row:
-                rows.append(user_row)
-
-    t = Texttable(max_width=0)
-    t.add_rows(rows, header=False)
-    print(t.draw())
+    print_weeks(weeks, today, booked, followings, choices, defaults)
 
     locations = get_locations(token)
     if len(locations) == 0:
@@ -225,19 +232,6 @@ def run():
     else:
         add_reservations(token, location_id, to_book)
         booked = get_summary(token, start, end)
-        rows = []
-        for week in weeks:
-            header = ["Week of %s" % week[0].strftime('%d %b')]
-            booking_row = ["Me"]
-            rows.append(header)
-            rows.append(booking_row)
-            for day in week:
-                header.append(day.strftime('%a\n%d'))
-                is_booked = day in booked
-                booking_row.append("x" if is_booked else "")
-        t = Texttable(max_width=0)
-        t.add_rows(rows, header=False)
-        print(t.draw())
-
+        print_weeks(weeks, today, booked, [], [], [])
 if __name__ == "__main__":
     run()
