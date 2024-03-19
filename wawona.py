@@ -109,7 +109,6 @@ def get_followings(token, start, end):
                 dt = date(int(year), int(month), int(day))
                 days.add(dt)
             out.append((name, days))
-        
     return out
 
 def add_reservations(token, location_id, dates):
@@ -118,15 +117,14 @@ def add_reservations(token, location_id, dates):
         "locationId": location_id,
         "reservations": []
     }
-    for date in dates:
-        iso_date = date.isoformat()
+    for day in dates:
+        iso_date = day.isoformat()
         body['reservations'].append({
             "startTimeUtc": "%sT13:00:00Z" % iso_date,
             "endTimeUtc": "%sT20:59:00Z" % iso_date,
             "isPrivate": False
         })
     response = check(requests.post("https://hrx-backend.sequoia.com/rtw/resv/client/reservations", headers=token_headers(token), json=body))
-    print(response.json())
 
 token = get_token()
 today = date.today()
@@ -213,10 +211,24 @@ answers = inquirer.prompt(questions)
 if not answers:
     raise Exception("No dates")
 to_book = []
-for date in answers["dates"]:
-    if date not in defaults:
-        to_book.append(date)
-if to_book:
-    add_reservations(token, location["locationId"], to_book)
-else:
+for day in answers["dates"]:
+    if day not in defaults:
+        to_book.append(day)
+if not to_book:
     print("No reservations added.")
+else:
+    add_reservations(token, location_id, to_book)
+    booked = get_summary(token, start, end)
+    rows = []
+    for week in weeks:
+        header = ["Week of %s" % week[0].strftime('%d %b')]
+        booking_row = ["Me"]
+        rows.append(header)
+        rows.append(booking_row)
+        for day in week:
+            header.append(day.strftime('%a\n%d'))
+            is_booked = day in booked
+            booking_row.append("x" if is_booked else "")
+    t = Texttable(max_width=0)
+    t.add_rows(rows, header=False)
+    print(t.draw())
