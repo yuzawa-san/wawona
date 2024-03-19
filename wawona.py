@@ -126,99 +126,30 @@ def add_reservations(token, location_id, dates):
         })
     response = check(requests.post("https://hrx-backend.sequoia.com/rtw/resv/client/reservations", headers=token_headers(token), json=body))
 
-token = get_token()
-today = date.today()
-weekday = today.weekday()
-if weekday < 5:
-    start = today - timedelta(days=weekday)
-else:
-    start = today + timedelta(days=7-weekday)
-days = 14
-end = start + timedelta(days=days)
-try:
-    booked = get_summary(token, start, end)
-except:
-    token = get_token(True)
-    booked = get_summary(token, start, end)
-followings = get_followings(token, start, end)
-choices = []
-defaults = []
-weeks = [[],[]]
-for day_offset in range(days):
-    day = start + timedelta(days=day_offset)
-    weekday = day.weekday()
+def run():
+    token = get_token()
+    today = date.today()
+    weekday = today.weekday()
     if weekday < 5:
-        weeks[day_offset // 7].append(day)
-rows = []
-for week in weeks:
-    header = ["Week of %s" % week[0].strftime('%d %b')]
-    booking_row = ["Me"]
-    rows.append(header)
-    rows.append(booking_row)
-    for day in week:
-        header.append(day.strftime('%a\n%d'))
-        is_booked = day in booked
-        booking_row.append("x" if is_booked else "")
-        if day >= today:
-            choices.append((day.strftime('%a %d %b'), day))
-            if is_booked:
-                defaults.append(day)
-    for name, days in followings:
-        user_row = [name]
-        add_row = False
-        for day in week:
-            if day in days:
-                entry = "x"
-                add_row = True
-            else:
-                entry = ""
-            user_row.append(entry)
-        if add_row:
-            rows.append(user_row)
-
-t = Texttable(max_width=0)
-t.add_rows(rows, header=False)
-print(t.draw())
-
-locations = get_locations(token)
-if len(locations) == 0:
-    raise Exception("No locations")
-if len(locations) == 1:
-    location_id = locations[0][1]
-else:
-    questions = [
-        inquirer.List(
-            "location",
-            message="What office do you want to reserve?",
-            choices=locations,
-        ),
-    ]
-    answers = inquirer.prompt(questions)
-    if not answers:
-        raise Exception("No location")
-    location_id = answers['location']
-
-questions = [
-    inquirer.Checkbox(
-        "dates",
-        message="What dates do you want to reserve?",
-        choices=choices,
-        default=defaults,
-    ),
-]
-
-answers = inquirer.prompt(questions)
-if not answers:
-    raise Exception("No dates")
-to_book = []
-for day in answers["dates"]:
-    if day not in defaults:
-        to_book.append(day)
-if not to_book:
-    print("No reservations added.")
-else:
-    add_reservations(token, location_id, to_book)
-    booked = get_summary(token, start, end)
+        start = today - timedelta(days=weekday)
+    else:
+        start = today + timedelta(days=7-weekday)
+    days = 14
+    end = start + timedelta(days=days)
+    try:
+        booked = get_summary(token, start, end)
+    except:
+        token = get_token(True)
+        booked = get_summary(token, start, end)
+    followings = get_followings(token, start, end)
+    choices = []
+    defaults = []
+    weeks = [[],[]]
+    for day_offset in range(days):
+        day = start + timedelta(days=day_offset)
+        weekday = day.weekday()
+        if weekday < 5:
+            weeks[day_offset // 7].append(day)
     rows = []
     for week in weeks:
         header = ["Week of %s" % week[0].strftime('%d %b')]
@@ -229,6 +160,79 @@ else:
             header.append(day.strftime('%a\n%d'))
             is_booked = day in booked
             booking_row.append("x" if is_booked else "")
+            if day >= today:
+                choices.append((day.strftime('%a %d %b'), day))
+                if is_booked:
+                    defaults.append(day)
+        for name, days in followings:
+            user_row = [name]
+            add_row = False
+            for day in week:
+                if day in days:
+                    entry = "x"
+                    add_row = True
+                else:
+                    entry = ""
+                user_row.append(entry)
+            if add_row:
+                rows.append(user_row)
+
     t = Texttable(max_width=0)
     t.add_rows(rows, header=False)
     print(t.draw())
+
+    locations = get_locations(token)
+    if len(locations) == 0:
+        raise Exception("No locations")
+    if len(locations) == 1:
+        location_id = locations[0][1]
+    else:
+        questions = [
+            inquirer.List(
+                "location",
+                message="What office do you want to reserve?",
+                choices=locations,
+            ),
+        ]
+        answers = inquirer.prompt(questions)
+        if not answers:
+            raise Exception("No location")
+        location_id = answers['location']
+
+    questions = [
+        inquirer.Checkbox(
+            "dates",
+            message="What dates do you want to reserve?",
+            choices=choices,
+            default=defaults,
+        ),
+    ]
+
+    answers = inquirer.prompt(questions)
+    if not answers:
+        raise Exception("No dates")
+    to_book = []
+    for day in answers["dates"]:
+        if day not in defaults:
+            to_book.append(day)
+    if not to_book:
+        print("No reservations added.")
+    else:
+        add_reservations(token, location_id, to_book)
+        booked = get_summary(token, start, end)
+        rows = []
+        for week in weeks:
+            header = ["Week of %s" % week[0].strftime('%d %b')]
+            booking_row = ["Me"]
+            rows.append(header)
+            rows.append(booking_row)
+            for day in week:
+                header.append(day.strftime('%a\n%d'))
+                is_booked = day in booked
+                booking_row.append("x" if is_booked else "")
+        t = Texttable(max_width=0)
+        t.add_rows(rows, header=False)
+        print(t.draw())
+
+if __name__ == "__main__":
+    run()
