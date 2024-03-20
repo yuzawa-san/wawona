@@ -1,4 +1,4 @@
-# wawona
+# wawona 🌲
 
 by [@yuzawa-san](https://github.com/yuzawa-san/)
 
