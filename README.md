@@ -1,41 +1,59 @@
 # wawona
 
-by @yuzawa-san
+by [@yuzawa-san](https://github.com/yuzawa-san/)
+
+![PyPI - Version](https://img.shields.io/pypi/v/wawona)
 
 Easily make office reservations in sequoia from the command line.
 This tool is specifically for viewing the next two week's bookings from coworkers that you have followed, and then for booking multiple days at a time.
 
 ## Install
 
-- python 3 must be installed
-- (recommended) use a virtualenv:
-- install dependencies: `python setup.py install`
+The easiest way is probably using [Homebrew](https://brew.sh/).
+A self-maintained tap is available for use. To install tap:
+```console
+brew tap yuzawa-san/tap
+```
+
+To install:
+```console
+brew update
+brew install wawona
+```
+
+To update:
+```console
+brew update
+# upgrade all Homebrew software
+brew upgrade
+# update just this
+brew upgrade wawona
+```
 
 ## Usage 
 
-- (optional) enter your virtualenv
-- run it: `wawona`
+- run it from your terminal: `wawona`
 - provide email and password (and MFA token), you will be prompted to re-authorise periodically
 - view reservations
 - optionally book days (or not, just hit return to exit)
 
 ```
 +----------------------+-----+-----+-----+-----+-----+
-| Week of 11 Mar       | Mon | Tue | Wed | Thu | Fri |
+| WEEK OF 11 Mar       | Mon | Tue | Wed | Thu | Fri |
 |                      | 11  | 12  | 13  | 14  | 15  |
 +----------------------+-----+-----+-----+-----+-----+
-| Me                   | x   | x   | x   | x   | x   |
+| Me                   | ✅   | ✅   | ✅   | ✅   | ✅   |
 +----------------------+-----+-----+-----+-----+-----+
-| Paul Wawona          |     |     | x   |     | x   |
+| Paul Wawona          |     |     | ✅   |     | ✅   |
 +----------------------+-----+-----+-----+-----+-----+
-| Juan Fnulwoln        |     | x   |     | x   |     |
+| Juan Fnulwoln        |     | ✅   |     | ✅   |     |
 +----------------------+-----+-----+-----+-----+-----+
-| Maeve Melwosniwnaiko |     | x   | x   | x   |     |
+| Maeve Melwosniwnaiko |     | ✅   | ✅   | ✅   |     |
 +----------------------+-----+-----+-----+-----+-----+
-| Week of 18 Mar       | Mon | Tue | Wed | Thu | Fri |
+| WEEK OF 18 Mar       | Mon | Tue | Wed | Thu | Fri |
 |                      | 18  | 19  | 20  | 21  | 22  |
 +----------------------+-----+-----+-----+-----+-----+
-| Me                   | x   | x   | x   |     |     |
+| Me                   | ✅   | ✅   | ✅   |     |     |
 +----------------------+-----+-----+-----+-----+-----+
 [?] What dates do you want to reserve?: 
  > [X] Thu 14 Mar
@@ -55,3 +73,4 @@ This tool is specifically for viewing the next two week's bookings from coworker
 - no warranty or stability guarantees, could break one day if something changes on their end
 - password/token is stored in system keychain
 - no intention to add ability book seats since that flow is too complex
+- named for the [tree](https://en.wikipedia.org/wiki/Wawona_Tree)

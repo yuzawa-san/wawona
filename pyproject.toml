@@ -8,7 +8,7 @@ version = "0.0.2"
 authors = [
   { name="yuzawa-san", email="jtyuzawa@gmail.com" },
 ]
-license = {file = "LICENSE"}
+license = {text = "MIT License"}
 description = "Easily make office reservations in sequoia from the command line."
 readme = "README.md"
 requires-python = ">=3.8"
