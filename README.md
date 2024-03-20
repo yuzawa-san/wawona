@@ -2,7 +2,7 @@
 
 by [@yuzawa-san](https://github.com/yuzawa-san/)
 
-![PyPI - Version](https://img.shields.io/pypi/v/wawona)
+[![PyPI - Version](https://img.shields.io/pypi/v/wawona)](https://pypi.org/project/wawona/)
 
 Easily make office reservations in sequoia from the command line.
 This tool is specifically for viewing the next two week's bookings from coworkers that you have followed, and then for booking multiple days at a time.
