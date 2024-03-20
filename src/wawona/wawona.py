@@ -2,12 +2,13 @@ import json
 import os
 import sys
 import requests
-from datetime import date, timedelta
+from datetime import date, datetime, time, timedelta
 from os.path import isfile, isdir
 from getpass import getpass
 from texttable import Texttable
 import inquirer
 import keyring
+import pytz
 
 config_path = "%s/.config/sequoia-workplace-bookings" % os.environ["HOME"]
 config_file = "%s/config.json" % config_path
@@ -86,7 +87,7 @@ def token_headers(token):
 
 def get_locations(token):
     response = check(requests.get("https://hrx-backend.sequoia.com/rtw/resv/client/locations", headers=token_headers(token)))
-    return [(x["locationName"], x["locationId"]) for x in response.json()["data"]["locations"]]
+    return [(x["locationName"], x) for x in response.json()["data"]["locations"]]
 
 def format_date(dt):
     return "%02d-%02d-%d" % (dt.day, dt.month, dt.year)
@@ -117,20 +118,24 @@ def get_followings(token, start, end):
             out.append((name, days))
     return out
 
-def add_reservations(token, location_id, dates):
+def pretty_time(tz, day, time):
+    return tz.localize(datetime.combine(day, time)).astimezone(pytz.utc).isoformat().replace('+00:00', 'Z')
+
+def add_reservations(token, location, dates):
     body = {
         "reservationType": "LOCATION",
-        "locationId": location_id,
+        "locationId": location["locationId"],
         "reservations": []
     }
+    tz = pytz.timezone(location["locationTimezone"])
     for day in dates:
         iso_date = day.isoformat()
         body['reservations'].append({
-            "startTimeUtc": "%sT13:00:00Z" % iso_date,
-            "endTimeUtc": "%sT20:59:00Z" % iso_date,
+            "startTimeUtc": pretty_time(tz, day, time(9)),
+            "endTimeUtc": pretty_time(tz, day, time(16,59)),
             "isPrivate": False
         })
-    response = check(requests.post("https://hrx-backend.sequoia.com/rtw/resv/client/reservations", headers=token_headers(token), json=body))
+    check(requests.post("https://hrx-backend.sequoia.com/rtw/resv/client/reservations", headers=token_headers(token), json=body))
 
 def print_weeks(weeks, today, booked, followings, choices, defaults):
     rows = []
@@ -197,7 +202,7 @@ def run():
     if len(locations) == 0:
         raise Exception("No locations")
     if len(locations) == 1:
-        location_id = locations[0][1]
+        location = locations[0][1]
     else:
         questions = [
             inquirer.List(
@@ -209,7 +214,7 @@ def run():
         answers = inquirer.prompt(questions)
         if not answers:
             raise Exception("No location")
-        location_id = answers['location']
+        location = answers['location']
 
     questions = [
         inquirer.Checkbox(
@@ -230,7 +235,7 @@ def run():
     if not to_book:
         print("No reservations added.")
     else:
-        add_reservations(token, location_id, to_book)
+        add_reservations(token, location, to_book)
         booked = get_summary(token, start, end)
         print_weeks(weeks, today, booked, [], [], [])
 if __name__ == "__main__":
