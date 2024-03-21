@@ -279,7 +279,7 @@ def run_tasks(token):
         space_label = reserve_space(token, task_id, start_time, end_time, space_id, user_id, reservation_id)
         print("You have booked '%s'" % space_label)
 
-def print_weeks(weeks, today, booked, followings, choices, defaults):
+def print_weeks(weeks, today, booked, followings, choices):
     rows = []
     for week in weeks:
         label = "WEEK OF %s" % week[0].strftime('%d %b').upper()
@@ -294,10 +294,8 @@ def print_weeks(weeks, today, booked, followings, choices, defaults):
             header.append(day_label)
             is_booked = day in booked
             booking_row.append(CHECK_MARK if is_booked else "")
-            if day >= today:
+            if not is_booked and day >= today:
                 choices.append((day.strftime('%a %d %b'), day))
-                if is_booked:
-                    defaults.append(day)
         for name, days in followings:
             user_row = [name]
             add_row = False
@@ -333,14 +331,15 @@ def run():
     run_tasks(token)
     followings = get_followings(token, start, end)
     choices = []
-    defaults = []
     weeks = [[],[]]
     for day_offset in range(days):
         day = start + timedelta(days=day_offset)
         weekday = day.weekday()
         if weekday < 5:
             weeks[day_offset // 7].append(day)
-    print_weeks(weeks, today, booked, followings, choices, defaults)
+    print_weeks(weeks, today, booked, followings, choices)
+    if not choices:
+        return
 
     locations = get_locations(token)
     location = do_inquiry("Office", locations)
@@ -348,24 +347,20 @@ def run():
     questions = [
         inquirer.Checkbox(
             "dates",
-            message="Date to reserve (press return for no changes)",
+            message="Date to reserve (press return for none)",
             choices=choices,
-            default=defaults,
         ),
     ]
 
     answers = inquirer.prompt(questions)
     if not answers:
         raise Exception("No dates")
-    to_book = []
-    for day in answers["dates"]:
-        if day not in defaults:
-            to_book.append(day)
+    to_book = answers["dates"]
     if not to_book:
         print("No reservations added.")
     else:
         add_reservations(token, location, to_book)
         booked = get_summary(token, start, end)
-        print_weeks(weeks, today, booked, [], [], [])
+        print_weeks(weeks, today, booked, [], [])
 if __name__ == "__main__":
     run()
