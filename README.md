@@ -72,5 +72,4 @@ brew upgrade wawona
 - uses public endpoints discovered from the web UI
 - no warranty or stability guarantees, could break one day if something changes on their end
 - password/token is stored in system keychain
-- no intention to add ability book seats since that flow is too complex
-- named for the [tree](https://en.wikipedia.org/wiki/Wawona_Tree)
+- named for the [drive-thru sequoia](https://en.wikipedia.org/wiki/Wawona_Tree)

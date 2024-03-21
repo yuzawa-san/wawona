@@ -1,6 +1,7 @@
 import json
 import os
 import sys
+import re
 import requests
 from datetime import date, datetime, time, timedelta
 from os.path import isfile, isdir
@@ -52,7 +53,7 @@ def get_token(refresh=False):
     config = get_config()
     email = config.get("email")
     if not email:
-        email = input("Email: ")
+        email = inquirer.text(message="Email")
         config["email"] = email
     token = keyring.get_password(KEYRING_TOKEN, email)
     if token and not refresh:
@@ -60,7 +61,7 @@ def get_token(refresh=False):
     response = check(requests.post("https://hrx-backend.sequoia.com/idm/v1/contacts/verify-email", headers=HEADERS, json={"email":email}))
     password = keyring.get_password(KEYRING_EMAIL, email)
     if not password:
-        password = getpass("Password for %s: " % email)
+        password = inquirer.password(message='Password')
     response = check(requests.post("https://hrx-backend.sequoia.com/idm/users/login", headers=HEADERS, json={"email":email,"password":password,"browserHash":BROWSER_HASH,"userType":"employee"}))
     login_json = response.json()
     login_data = login_json["data"]
@@ -71,7 +72,7 @@ def get_token(refresh=False):
         if factors:
             factor = factors[0]
             print("Using MFA %s %s" % (factor.get("factorType","unknown"), factor.get("profile",{}).get("phoneNumber")))
-        mfa_code = input("MFA Code: ")
+        mfa_code = inquirer.text(message="MFA Code")
         headers = {"apitoken": token}
         headers.update(HEADERS)
         response = check(requests.post("https://hrx-backend.sequoia.com/idm/users/login/verify-mfa", headers=headers, json={"passCode":mfa_code,"browserHash":BROWSER_HASH}))
@@ -137,6 +138,147 @@ def add_reservations(token, location, dates):
         })
     check(requests.post("https://hrx-backend.sequoia.com/rtw/resv/client/reservations", headers=token_headers(token), json=body))
 
+def do_inquiry(message, choices, default=None):
+    if len(choices) == 0:
+        raise Exception("No choices")
+    if len(choices) == 1:
+        choice = choices[0]
+        print("[\033[33m?\033[0m] %s: \033[32m%s\033[0m (only choice)" % (message, choice[0]))
+        return choice[1]
+    questions = [
+        inquirer.List(
+            "choice",
+            message=message,
+            choices=choices,
+            default=default
+        ),
+    ]
+    answers = inquirer.prompt(questions)
+    if not answers:
+        raise Exception("No choice")
+    return answers['choice']
+
+def get_pending_tasks(token):
+    response = check(requests.get("https://hrx-backend.sequoia.com/rtw/client/pending-task", headers=token_headers(token)))
+    return response.json()["data"]["tasks"]
+
+def get_task(token, task_id):
+    response = check(requests.get("https://hrx-backend.sequoia.com/rtw/client/task/info?taskId=%s" % task_id, headers=token_headers(token)))
+    return response.json()["data"]
+
+def respond_to_task(token, task_id, answers):
+    check(requests.post("https://hrx-backend.sequoia.com/rtw/client/task-response", headers=token_headers(token), json={"taskId":task_id,"response":answers}))
+
+def get_floors(token, task_id):
+    response = check(requests.get("https://hrx-backend.sequoia.com/rtw/client/space-bookings/floors?taskId=%s" % task_id, headers=token_headers(token)))
+    return [(x["floorName"], x["floorId"]) for x in response.json()["data"]["floors"] if x["status"] == "active"]
+
+def get_spaces(token, adjective, task_id, floor_id, start_time, end_time):
+    url = "https://hrx-backend.sequoia.com/rtw/client/space-bookings/%s/spaces?taskId=%s&floorId=%s&startTime=%s&endTime=%s" % (adjective, task_id, floor_id, start_time, end_time)
+    response = check(requests.get(url, headers=token_headers(token)))
+    return response.json()["data"]["spaces"]
+
+def reserve_space(token, task_id, start_time, end_time, space_id, user_id, reservation_id):
+    response = check(requests.post("https://hrx-backend.sequoia.com/rtw/client/space-bookings/space", headers=token_headers(token), json={"taskId":task_id,"startTime":start_time,"endTime":end_time,"spaceId":space_id,"userId":user_id,"reservationId":reservation_id}
+))
+    return response.json()["data"]["label"]
+
+def get_space(token, task, floor_id):
+    task_id = task["taskId"]
+    start_time = task["reservationStartTime"]
+    end_time = task["reservationEndTime"]
+    available_spaces = get_spaces(token, "available", task_id, floor_id, start_time, end_time)
+    preferred_space_id = inquirer.text(message="Preferred space ID (press return for none)")
+    all_spaces = []
+    available_space_set = set()
+    for available_space in available_spaces:
+        space_id = available_space["spaceId"]
+        unique_space_id = available_space["uniqueSpaceId"]
+        if space_id == preferred_space_id:
+            return unique_space_id
+        all_spaces.append(available_space)
+        available_space_set.add(unique_space_id)
+    booked_spaces = get_spaces(token, "booked", task_id, floor_id, start_time, end_time)
+    default = None
+    for booked_space in booked_spaces:
+        space_id = booked_space["spaceId"]
+        if space_id == preferred_space_id:
+            default = booked_space["uniqueSpaceId"]
+        all_spaces.append(booked_space)
+    all_spaces.sort(key=lambda s: [int(t) if t.isdigit() else t.lower() for t in re.split(r'(\d+)', s["label"])])
+    choices = []
+    for space in all_spaces:
+        raw_label = space["label"]
+        first_name = space.get("firstName")
+        if first_name:
+            label = "\033[31m%s (%s %s)\033[0m" % (raw_label, first_name, space["lastName"])
+        else:
+            label = "\033[32m%s\033[0m" % raw_label
+        choices.append((label, space["uniqueSpaceId"]))
+    while True:
+        print("Preferred space is not available")
+        unique_space_id = do_inquiry("Space", choices, default)
+        if unique_space_id in available_space_set:
+            return unique_space_id
+
+def run_tasks(token):
+    pending_tasks = get_pending_tasks(token)
+    for task in pending_tasks:
+        task_id = task["taskId"]
+        print(task)
+        task_metadata = task["taskMetadata"]
+        task_data = task_metadata.get("data")
+        if not task_data:
+            continue
+        card_info = task_metadata["cardInfo"]
+        print("You have a pending task - %s:\n\n\t%s %s %s\n\t%s\n\t%s\n" % (
+            task["taskTitle"],
+            card_info.get("displayTitle",""),
+            card_info.get("title",""),
+            card_info.get("heading",""),
+            card_info.get("basicSubtitle", ""),
+            card_info.get("caption", "")
+        ))
+        if not inquirer.confirm("Complete task?", default=True):
+            continue
+        questions = task_data["questions"]
+        if not questions or not task_data["hasQuestionnaire"]:
+            raise Exception("Task without questionaire not supported")
+        if task_data["hasDocumentAck"]:
+            raise Exception("Task with document acknowledgement not supported")
+        answers = []
+        for question in questions:
+            question_id = question["questionId"]
+            question_type = question["answerType"]
+            if question_type != "SINGLE_SELECT":
+                raise Exception("Question type %s not supported" % question_type)
+            question_category = question["questionCategory"]
+            if question_category != "ALL_USERS":
+                raise Exception("Question category %s not supported" % question_category)
+            raw_choices = question["choices"]
+            if not raw_choices:
+                raise Exception("Question missing choices")
+            choices = []
+            for raw_choice in raw_choices:
+                choice_type = raw_choice["choiceType"]
+                if choice_type != "QUALIFY":
+                    raise Exception("Choice type %s not supported" % choice_type)
+                choices.append([raw_choice["choiceLabel"], raw_choice["choiceId"]])
+            choice_id = do_inquiry(question["questionTitle"].strip(), choices)
+            answers.append({"questionId": question_id, "choice_id": choice_id})
+        respond_to_task(token, task_id, answers)
+        if not task["spaceBookingEnabled"]:
+            continue
+        floors = get_floors(token, task_id)
+        floor_id = do_inquiry("Floor", floors)
+        space_id = get_space(token, task, floor_id)
+        start_time = task["reservationStartTime"]
+        end_time = task["reservationEndTime"]
+        user_id = task["recipientId"]
+        reservation_id = task["reservationId"]
+        space_label = reserve_space(token, task_id, start_time, end_time, space_id, user_id, reservation_id)
+        print("You have booked '%s'" % space_label)
+
 def print_weeks(weeks, today, booked, followings, choices, defaults):
     rows = []
     for week in weeks:
@@ -173,6 +315,7 @@ def print_weeks(weeks, today, booked, followings, choices, defaults):
     print(t.draw())
 
 def run():
+    print("\U0001F332 \033[32mW A W O N A\033[0m \U0001F332\n\nhttps://github.com/yuzawa-san/wawona\n")
     token = get_token()
     today = date.today()
     weekday = today.weekday()
@@ -187,6 +330,7 @@ def run():
     except:
         token = get_token(True)
         booked = get_summary(token, start, end)
+    run_tasks(token)
     followings = get_followings(token, start, end)
     choices = []
     defaults = []
@@ -199,27 +343,12 @@ def run():
     print_weeks(weeks, today, booked, followings, choices, defaults)
 
     locations = get_locations(token)
-    if len(locations) == 0:
-        raise Exception("No locations")
-    if len(locations) == 1:
-        location = locations[0][1]
-    else:
-        questions = [
-            inquirer.List(
-                "location",
-                message="What office do you want to reserve?",
-                choices=locations,
-            ),
-        ]
-        answers = inquirer.prompt(questions)
-        if not answers:
-            raise Exception("No location")
-        location = answers['location']
+    location = do_inquiry("Office", locations)
 
     questions = [
         inquirer.Checkbox(
             "dates",
-            message="What dates do you want to reserve?",
+            message="Date to reserve (press return for no changes)",
             choices=choices,
             default=defaults,
         ),
