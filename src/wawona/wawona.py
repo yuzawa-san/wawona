@@ -15,9 +15,9 @@ import pytz
 config_path = "%s/.config/sequoia-workplace-bookings" % os.environ["HOME"]
 config_file = "%s/config.json" % config_path
 
-# default to a 9-5
-START_HOUR = 9
-END_HOUR = 17
+# default to a 8 to 6
+START_HOUR = 8
+END_HOUR = 18
 BROWSER_HASH="1032275734"
 HEADERS = {
     'authority': 'hrx-backend.sequoia.com',
