@@ -2,6 +2,7 @@ import json
 import os
 import sys
 import re
+import time
 import requests
 from datetime import date, datetime, time, timedelta
 from os.path import isfile, isdir
@@ -354,13 +355,17 @@ def run():
 
     answers = inquirer.prompt(questions)
     if not answers:
-        raise Exception("No dates")
+        return
     to_book = answers["dates"]
     if not to_book:
         print("No reservations added.")
-    else:
-        add_reservations(token, location, to_book)
-        booked = get_summary(token, start, end)
-        print_weeks(weeks, today, booked, [], [])
+        return
+    add_reservations(token, location, to_book)
+    booked = get_summary(token, start, end)
+    print_weeks(weeks, today, booked, [], [])
+    if today in to_book:
+        print("Waiting for pending tasks...")
+        time.sleep(10)
+        run_tasks()
 if __name__ == "__main__":
     run()
