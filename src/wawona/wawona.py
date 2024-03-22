@@ -2,8 +2,8 @@ import json
 import os
 import sys
 import re
-import time
 import requests
+from time import sleep
 from datetime import date, datetime, time, timedelta
 from os.path import isfile, isdir
 from getpass import getpass
@@ -47,7 +47,6 @@ def put_config(config):
         json.dump(config, f)
 
 def check(response):
-    print(response.json())
     if response.status_code != 200:
         print(response, response.json())
         raise Exception("request failed")
@@ -383,7 +382,7 @@ def run():
     if check_tasks:
         for i in range(5):
             print("Waiting for pending tasks...")
-            time.sleep(1)
+            sleep(1)
             pending_task_ids = get_pending_tasks(token)
             if pending_task_ids:
                 run_tasks(token, pending_task_ids)
