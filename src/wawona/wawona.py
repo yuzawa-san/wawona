@@ -176,7 +176,7 @@ def do_inquiry(message, choices, default=None):
 
 def get_pending_tasks(token):
     response = check(requests.get("https://hrx-backend.sequoia.com/rtw/client/pending-task", headers=token_headers(token)))
-    return response.json()["data"]["tasks"]
+    return [x["taskId"] for x in response.json()["data"]["tasks"]]
 
 def get_task(token, task_id):
     response = check(requests.get("https://hrx-backend.sequoia.com/rtw/client/task/info?taskId=%s" % task_id, headers=token_headers(token)))
@@ -237,11 +237,10 @@ def get_space(token, task, floor_id):
         if unique_space_id in available_space_set:
             return unique_space_id
 
-def run_tasks(token):
-    pending_tasks = get_pending_tasks(token)
-    for task in pending_tasks:
+def run_tasks(token, pending_task_ids):
+    for pending_task_id in pending_task_ids:
+        task = get_task(token, pending_task_id)
         task_id = task["taskId"]
-        print(task)
         task_metadata = task["taskMetadata"]
         task_data = task_metadata.get("data")
         if not task_data:
@@ -331,6 +330,11 @@ def print_weeks(weeks, today, booked, followings, choices):
 def run():
     print("\U0001F332 \033[32mW A W O N A\033[0m \U0001F332\n\nhttps://github.com/yuzawa-san/wawona\n")
     token = get_token()
+    try:
+        pending_task_ids = get_pending_tasks(token)
+    except:
+        token = get_token(True)
+        pending_task_ids = get_pending_tasks(token)
     today = date.today()
     weekday = today.weekday()
     if weekday < 5:
@@ -339,12 +343,9 @@ def run():
         start = today + timedelta(days=7-weekday)
     days = 14
     end = start + timedelta(days=days)
-    try:
-        booked = get_summary(token, start, end)
-    except:
-        token = get_token(True)
-        booked = get_summary(token, start, end)
-    run_tasks(token)
+    booked = get_summary(token, start, end)
+    pending_task_ids = get_pending_tasks(token)
+    run_tasks(token, pending_task_ids)
     followings = get_followings(token, start, end)
     choices = []
     weeks = [[],[]]
@@ -379,8 +380,12 @@ def run():
     booked = get_summary(token, start, end)
     print_weeks(weeks, today, booked, [], [])
     if check_tasks:
-        print("Waiting for pending tasks...")
-        time.sleep(10)
-        run_tasks()
+        for i in range(5):
+            print("Waiting for pending tasks...")
+            time.sleep(1)
+            pending_task_ids = get_pending_tasks(token)
+            if pending_task_ids:
+                run_tasks(token, pending_task_ids)
+                break
 if __name__ == "__main__":
     run()
