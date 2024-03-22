@@ -47,6 +47,7 @@ def put_config(config):
         json.dump(config, f)
 
 def check(response):
+    print(response.json())
     if response.status_code != 200:
         print(response, response.json())
         raise Exception("request failed")
@@ -335,6 +336,7 @@ def run():
     except:
         token = get_token(True)
         pending_task_ids = get_pending_tasks(token)
+    run_tasks(token, pending_task_ids)
     today = date.today()
     weekday = today.weekday()
     if weekday < 5:
@@ -345,7 +347,6 @@ def run():
     end = start + timedelta(days=days)
     booked = get_summary(token, start, end)
     pending_task_ids = get_pending_tasks(token)
-    run_tasks(token, pending_task_ids)
     followings = get_followings(token, start, end)
     choices = []
     weeks = [[],[]]
