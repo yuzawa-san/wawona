@@ -15,7 +15,9 @@ import pytz
 config_path = "%s/.config/sequoia-workplace-bookings" % os.environ["HOME"]
 config_file = "%s/config.json" % config_path
 
-
+# default to a 9-5
+START_HOUR = 9
+END_HOUR = 17
 BROWSER_HASH="1032275734"
 HEADERS = {
     'authority': 'hrx-backend.sequoia.com',
@@ -120,8 +122,8 @@ def get_followings(token, start, end):
             out.append((name, days))
     return out
 
-def pretty_time(tz, day, time):
-    return tz.localize(datetime.combine(day, time)).astimezone(pytz.utc).isoformat().replace('+00:00', 'Z')
+def pretty_time(dt):
+    return dt.astimezone(pytz.utc).isoformat().replace('+00:00', 'Z')
 
 def add_reservations(token, location, dates):
     body = {
@@ -130,14 +132,21 @@ def add_reservations(token, location, dates):
         "reservations": []
     }
     tz = pytz.timezone(location["locationTimezone"])
+    # the earliest start will be a the top of the next hour
+    min_start = (datetime.now(tz) + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
     for day in dates:
         iso_date = day.isoformat()
-        body['reservations'].append({
-            "startTimeUtc": pretty_time(tz, day, time(9)),
-            "endTimeUtc": pretty_time(tz, day, time(16,59)),
-            "isPrivate": False
-        })
-    check(requests.post("https://hrx-backend.sequoia.com/rtw/resv/client/reservations", headers=token_headers(token), json=body))
+        start = max(min_start, tz.localize(datetime.combine(day, time(START_HOUR))))
+        # the end needs to be a minute before the end start of the last hour
+        end = tz.localize(datetime.combine(day, time(END_HOUR)) - timedelta(minutes=1))
+        if start < end:
+            body['reservations'].append({
+                "startTimeUtc": pretty_time(start),
+                "endTimeUtc": pretty_time(end),
+                "isPrivate": False
+            })
+    if body['reservations']:
+        check(requests.post("https://hrx-backend.sequoia.com/rtw/resv/client/reservations", headers=token_headers(token), json=body))
 
 def do_inquiry(message, choices, default=None):
     if len(choices) == 0:
