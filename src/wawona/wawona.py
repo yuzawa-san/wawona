@@ -328,7 +328,12 @@ def print_weeks(weeks, today, booked, followings, choices):
     print(t.draw())
 
 def run():
-    print("\U0001F332 \033[32mW A W O N A\033[0m \U0001F332\n\nhttps://github.com/yuzawa-san/wawona\n")
+    try:
+        from . import __version__
+        version = "v%s" % __version__
+    except:
+        version = "unknown"
+    print("\U0001F332 \033[32mW A W O N A\033[0m \U0001F332\n\n%s - https://github.com/yuzawa-san/wawona\n" % version)
     token = get_token()
     try:
         pending_task_ids = get_pending_tasks(token)
@@ -364,7 +369,7 @@ def run():
     questions = [
         inquirer.Checkbox(
             "dates",
-            message="Date to reserve (press return for none)",
+            message="Date(s) to reserve (press return for none)",
             choices=choices,
         ),
     ]
