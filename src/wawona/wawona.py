@@ -134,9 +134,14 @@ def add_reservations(token, location, dates):
     tz = pytz.timezone(location["locationTimezone"])
     # the earliest start will be a the top of the next hour
     min_start = (datetime.now(tz) + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
+    check_tasks = False
     for day in dates:
         iso_date = day.isoformat()
-        start = max(min_start, tz.localize(datetime.combine(day, time(START_HOUR))))
+        start = tz.localize(datetime.combine(day, time(START_HOUR)))
+        if start <= min_start:
+            start = min_start
+            # make sure we wait for pending tasks since we are close enough to the start of the reservation
+            check_tasks = True
         # the end needs to be a minute before the end start of the last hour
         end = tz.localize(datetime.combine(day, time(END_HOUR)) - timedelta(minutes=1))
         if start < end:
@@ -147,6 +152,7 @@ def add_reservations(token, location, dates):
             })
     if body['reservations']:
         check(requests.post("https://hrx-backend.sequoia.com/rtw/resv/client/reservations", headers=token_headers(token), json=body))
+    return check_tasks
 
 def do_inquiry(message, choices, default=None):
     if len(choices) == 0:
@@ -369,10 +375,10 @@ def run():
     if not to_book:
         print("No reservations added.")
         return
-    add_reservations(token, location, to_book)
+    check_tasks = add_reservations(token, location, to_book)
     booked = get_summary(token, start, end)
     print_weeks(weeks, today, booked, [], [])
-    if today in to_book:
+    if check_tasks:
         print("Waiting for pending tasks...")
         time.sleep(10)
         run_tasks()
