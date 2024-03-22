@@ -12,7 +12,7 @@ import inquirer
 import keyring
 import pytz
 
-config_path = "%s/.config/sequoia-workplace-bookings" % os.environ["HOME"]
+config_path = "%s/.config/wawona" % os.environ["HOME"]
 config_file = "%s/config.json" % config_path
 
 # default to a 8 to 6
