@@ -33,6 +33,39 @@ KEYRING_TOKEN="hrx-backend.sequoia.com"
 CHECK_MARK = "\u2705"
 CONFIG_VERSION = 1
 
+def check(response):
+    if response.status_code != 200:
+        print(response, response.json())
+        raise Exception("request failed")
+    return response
+
+def get_token(config, refresh=False):
+    email = config["email"]
+    token = keyring.get_password(KEYRING_TOKEN, email)
+    if token and not refresh:
+        return token
+    response = check(requests.post("https://hrx-backend.sequoia.com/idm/v1/contacts/verify-email", headers=HEADERS, json={"email":email}))
+    password = keyring.get_password(KEYRING_EMAIL, email)
+    if not password:
+        password = inquirer.password(message='Password')
+    response = check(requests.post("https://hrx-backend.sequoia.com/idm/users/login", headers=HEADERS, json={"email":email,"password":password,"browserHash":BROWSER_HASH,"userType":"employee"}))
+    login_json = response.json()
+    login_data = login_json["data"]
+    user_details = login_data["userDetails"]
+    token = user_details["apiToken"]
+    if user_details["oktaStatus"] == "MFA_CHALLENGE":
+        factors = login_data.get("factors")
+        if factors:
+            factor = factors[0]
+            print("Using MFA %s %s" % (factor.get("factorType","unknown"), factor.get("profile",{}).get("phoneNumber")))
+        mfa_code = inquirer.text(message="MFA Code")
+        headers = {"apitoken": token}
+        headers.update(HEADERS)
+        response = check(requests.post("https://hrx-backend.sequoia.com/idm/users/login/verify-mfa", headers=headers, json={"passCode":mfa_code,"browserHash":BROWSER_HASH}))
+    keyring.set_password(KEYRING_EMAIL, email, password)
+    keyring.set_password(KEYRING_TOKEN, email, token)
+    return token
+
 def get_config():
     config = {}
     if isfile(config_file):
@@ -74,44 +107,18 @@ def get_config():
     password = keyring.get_password(KEYRING_EMAIL, email)
     if password:
         keyring.delete_password(KEYRING_EMAIL, email)
+    token = keyring.get_password(KEYRING_TOKEN, email)
+    if token:
+        keyring.delete_password(KEYRING_TOKEN, email)
+    # test configuration
+    get_token(config)
+    # only persist configuration if test worked
     if not isdir(config_path):
         os.makedirs(config_path, exist_ok=True)
     with open(config_file,'w') as f:
         json.dump(config, f)
     return config
 
-def check(response):
-    if response.status_code != 200:
-        print(response, response.json())
-        raise Exception("request failed")
-    return response
-
-def get_token(config, refresh=False):
-    email = config["email"]
-    token = keyring.get_password(KEYRING_TOKEN, email)
-    if token and not refresh:
-        return token
-    response = check(requests.post("https://hrx-backend.sequoia.com/idm/v1/contacts/verify-email", headers=HEADERS, json={"email":email}))
-    password = keyring.get_password(KEYRING_EMAIL, email)
-    if not password:
-        password = inquirer.password(message='Password')
-    response = check(requests.post("https://hrx-backend.sequoia.com/idm/users/login", headers=HEADERS, json={"email":email,"password":password,"browserHash":BROWSER_HASH,"userType":"employee"}))
-    login_json = response.json()
-    login_data = login_json["data"]
-    user_details = login_data["userDetails"]
-    token = user_details["apiToken"]
-    if user_details["oktaStatus"] == "MFA_CHALLENGE":
-        factors = login_data.get("factors")
-        if factors:
-            factor = factors[0]
-            print("Using MFA %s %s" % (factor.get("factorType","unknown"), factor.get("profile",{}).get("phoneNumber")))
-        mfa_code = inquirer.text(message="MFA Code")
-        headers = {"apitoken": token}
-        headers.update(HEADERS)
-        response = check(requests.post("https://hrx-backend.sequoia.com/idm/users/login/verify-mfa", headers=headers, json={"passCode":mfa_code,"browserHash":BROWSER_HASH}))
-    keyring.set_password(KEYRING_EMAIL, email, password)
-    keyring.set_password(KEYRING_TOKEN, email, token)
-    return token
 
 def token_headers(token):
     headers = {"token": token}
