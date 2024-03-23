@@ -69,7 +69,7 @@ brew upgrade wawona
 
 If you need to reset to factory defaults (maybe if you changed your password), remove the configuration:
 
-```
+```console
 rm -rf ~/.config/wawona/
 ```
 
