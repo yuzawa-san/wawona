@@ -114,7 +114,7 @@ def get_config():
     ]
     answers = inquirer.prompt(questions)
     config.update(answers)
-    email: str = config["email"]
+    email = config["email"]
     password = keyring.get_password(KEYRING_EMAIL, email)
     if password:
         keyring.delete_password(KEYRING_EMAIL, email)
