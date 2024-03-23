@@ -74,13 +74,13 @@ def get_token(config, refresh=False):
 
 
 def get_config():
-    config = {}
+    config: dict[str, str] = {}
     if isfile(config_file):
         with open(config_file) as f:
             config = json.load(f)
     if CONFIG_VERSION == int(config.get("version", "0")):
         return config
-    config["version"] = CONFIG_VERSION
+    config["version"] = str(CONFIG_VERSION)
     hours = []
     for hour in range(24):
         formatted = datetime.combine(date.today(), time(hour)).strftime(locale.nl_langinfo(locale.T_FMT_AMPM))
@@ -110,7 +110,7 @@ def get_config():
     ]
     answers = inquirer.prompt(questions)
     config.update(answers)
-    email = config["email"]
+    email: str = config["email"]
     password = keyring.get_password(KEYRING_EMAIL, email)
     if password:
         keyring.delete_password(KEYRING_EMAIL, email)
