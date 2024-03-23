@@ -57,13 +57,13 @@ def get_config():
         ),
         inquirer.List(
             "start_hour",
-            message="Start Hour",
+            message="Start of Day (for reservations)",
             choices=hours,
             default=8
         ),
         inquirer.List(
             "end_hour",
-            message="End Hour",
+            message="End of Day (for reservations)",
             choices=hours,
             default=18
         ),
