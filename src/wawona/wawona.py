@@ -11,13 +11,11 @@ from texttable import Texttable
 import inquirer
 import keyring
 import pytz
+import locale
 
 config_path = "%s/.config/wawona" % os.environ["HOME"]
 config_file = "%s/config.json" % config_path
 
-# default to a 8 to 6
-START_HOUR = 8
-END_HOUR = 18
 BROWSER_HASH="1032275734"
 HEADERS = {
     'authority': 'hrx-backend.sequoia.com',
@@ -33,18 +31,54 @@ HEADERS = {
 KEYRING_EMAIL="login.sequoia.com"
 KEYRING_TOKEN="hrx-backend.sequoia.com"
 CHECK_MARK = "\u2705"
+CONFIG_VERSION = 1
 
 def get_config():
-    if not isfile(config_file):
-        return {}
-    with open(config_file) as f:
-        return json.load(f)
-
-def put_config(config):
+    config = {}
+    if isfile(config_file):
+        with open(config_file) as f:
+            config = json.load(f)
+    if CONFIG_VERSION <= int(config.get("version","0")):
+        return config
+    config["version"] = CONFIG_VERSION
+    hours = []
+    for hour in range(24):
+        formatted = datetime.combine(date.today(), time(hour)).strftime(locale.nl_langinfo(locale.T_FMT_AMPM))
+        hours.append((formatted, hour))
+    questions = [
+        inquirer.Text(
+            "email",
+            message="Email",
+        ),
+        # NOTE: this does not have location
+        inquirer.Text(
+            "preferred_space_id",
+            message="Preferred space ID (press return for none)",
+        ),
+        inquirer.List(
+            "start_hour",
+            message="Start Hour",
+            choices=hours,
+            default=8
+        ),
+        inquirer.List(
+            "end_hour",
+            message="End Hour",
+            choices=hours,
+            default=18
+        ),
+    ]
+    answers = inquirer.prompt(questions)
+    config.update(answers)
+    email = config["email"]
+    password = keyring.get_password(KEYRING_EMAIL, email)
+    if password:
+        keyring.delete_password(KEYRING_EMAIL, email)
     if not isdir(config_path):
         os.makedirs(config_path, exist_ok=True)
     with open(config_file,'w') as f:
         json.dump(config, f)
+    return config
 
 def check(response):
     if response.status_code != 200:
@@ -52,12 +86,8 @@ def check(response):
         raise Exception("request failed")
     return response
 
-def get_token(refresh=False):
-    config = get_config()
-    email = config.get("email")
-    if not email:
-        email = inquirer.text(message="Email")
-        config["email"] = email
+def get_token(config, refresh=False):
+    email = config["email"]
     token = keyring.get_password(KEYRING_TOKEN, email)
     if token and not refresh:
         return token
@@ -81,7 +111,6 @@ def get_token(refresh=False):
         response = check(requests.post("https://hrx-backend.sequoia.com/idm/users/login/verify-mfa", headers=headers, json={"passCode":mfa_code,"browserHash":BROWSER_HASH}))
     keyring.set_password(KEYRING_EMAIL, email, password)
     keyring.set_password(KEYRING_TOKEN, email, token)
-    put_config(config)
     return token
 
 def token_headers(token):
@@ -125,7 +154,7 @@ def get_followings(token, start, end):
 def pretty_time(dt):
     return dt.astimezone(pytz.utc).isoformat().replace('+00:00', 'Z')
 
-def add_reservations(token, location, dates):
+def add_reservations(token, location, dates, config):
     body = {
         "reservationType": "LOCATION",
         "locationId": location["locationId"],
@@ -137,13 +166,13 @@ def add_reservations(token, location, dates):
     check_tasks = False
     for day in dates:
         iso_date = day.isoformat()
-        start = tz.localize(datetime.combine(day, time(START_HOUR)))
+        start = tz.localize(datetime.combine(day, time(int(config["start_hour"]))))
         if start <= min_start:
             start = min_start
             # make sure we wait for pending tasks since we are close enough to the start of the reservation
             check_tasks = True
         # the end needs to be a minute before the end start of the last hour
-        end = tz.localize(datetime.combine(day, time(END_HOUR)) - timedelta(minutes=1))
+        end = tz.localize(datetime.combine(day, time(int(config["end_hour"]))) - timedelta(minutes=1))
         if start < end:
             body['reservations'].append({
                 "startTimeUtc": pretty_time(start),
@@ -199,12 +228,12 @@ def reserve_space(token, task_id, start_time, end_time, space_id, user_id, reser
 ))
     return response.json()["data"]["label"]
 
-def get_space(token, task, floor_id):
+def get_space(token, task, floor_id, config):
     task_id = task["taskId"]
     start_time = task["reservationStartTime"]
     end_time = task["reservationEndTime"]
     available_spaces = get_spaces(token, "available", task_id, floor_id, start_time, end_time)
-    preferred_space_id = inquirer.text(message="Preferred space ID (press return for none)")
+    preferred_space_id = inquirer.text(message="Preferred space ID (press return for none)", default=config.get("preferred_space_id"))
     all_spaces = []
     available_space_set = set()
     for available_space in available_spaces:
@@ -237,7 +266,7 @@ def get_space(token, task, floor_id):
         if unique_space_id in available_space_set:
             return unique_space_id
 
-def run_tasks(token, pending_task_ids):
+def run_tasks(token, config, pending_task_ids):
     for pending_task_id in pending_task_ids:
         task = get_task(token, pending_task_id)
         task_id = task["taskId"]
@@ -286,7 +315,7 @@ def run_tasks(token, pending_task_ids):
             continue
         floors = get_floors(token, task_id)
         floor_id = do_inquiry("Floor", floors)
-        space_id = get_space(token, task, floor_id)
+        space_id = get_space(token, task, floor_id, config)
         start_time = task["reservationStartTime"]
         end_time = task["reservationEndTime"]
         user_id = task["recipientId"]
@@ -334,13 +363,14 @@ def run():
     except:
         version = "unknown"
     print("\U0001F332 \033[32mW A W O N A\033[0m \U0001F332\n\n%s - https://github.com/yuzawa-san/wawona\n" % version)
-    token = get_token()
+    config = get_config()
+    token = get_token(config)
     try:
         pending_task_ids = get_pending_tasks(token)
     except:
-        token = get_token(True)
+        token = get_token(config, True)
         pending_task_ids = get_pending_tasks(token)
-    run_tasks(token, pending_task_ids)
+    run_tasks(token, config, pending_task_ids)
     today = date.today()
     weekday = today.weekday()
     if weekday < 5:
@@ -381,7 +411,7 @@ def run():
     if not to_book:
         print("No reservations added.")
         return
-    check_tasks = add_reservations(token, location, to_book)
+    check_tasks = add_reservations(token, location, to_book, config)
     booked = get_summary(token, start, end)
     print_weeks(weeks, today, booked, [], [])
     if check_tasks:
@@ -390,7 +420,7 @@ def run():
             sleep(1)
             pending_task_ids = get_pending_tasks(token)
             if pending_task_ids:
-                run_tasks(token, pending_task_ids)
+                run_tasks(token, config, pending_task_ids)
                 break
 if __name__ == "__main__":
     run()

@@ -73,3 +73,11 @@ brew upgrade wawona
 - no warranty or stability guarantees, could break one day if something changes on their end
 - password/token is stored in system keychain
 - named for the [drive-thru sequoia](https://en.wikipedia.org/wiki/Wawona_Tree)
+
+## Reset
+
+If you need to reset to factory defaults (maybe if you changed your password), remove the configuration:
+
+```
+rm -rf ~/.config/wawona/
+```
