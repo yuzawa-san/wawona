@@ -38,7 +38,7 @@ def get_config():
     if isfile(config_file):
         with open(config_file) as f:
             config = json.load(f)
-    if CONFIG_VERSION <= int(config.get("version","0")):
+    if CONFIG_VERSION == int(config.get("version","0")):
         return config
     config["version"] = CONFIG_VERSION
     hours = []
