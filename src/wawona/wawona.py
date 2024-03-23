@@ -1,22 +1,21 @@
 import json
+import locale
 import os
-import sys
 import re
-import requests
-from time import sleep
 from datetime import date, datetime, time, timedelta
 from os.path import isfile, isdir
-from getpass import getpass
-from texttable import Texttable
+from time import sleep
+
 import inquirer
 import keyring
 import pytz
-import locale
+import requests
+from texttable import Texttable
 
 config_path = "%s/.config/wawona" % os.environ["HOME"]
 config_file = "%s/config.json" % config_path
 
-BROWSER_HASH="1032275734"
+BROWSER_HASH = "1032275734"
 HEADERS = {
     'authority': 'hrx-backend.sequoia.com',
     'accept': 'application/json',
@@ -28,10 +27,11 @@ HEADERS = {
     'referer': 'https://login.sequoia.com/',
     'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
 }
-KEYRING_EMAIL="login.sequoia.com"
-KEYRING_TOKEN="hrx-backend.sequoia.com"
+KEYRING_EMAIL = "login.sequoia.com"
+KEYRING_TOKEN = "hrx-backend.sequoia.com"
 CHECK_MARK = "\u2705"
 CONFIG_VERSION = 1
+
 
 def check(response):
     if response.status_code != 200:
@@ -39,16 +39,20 @@ def check(response):
         raise Exception("request failed")
     return response
 
+
 def get_token(config, refresh=False):
     email = config["email"]
     token = keyring.get_password(KEYRING_TOKEN, email)
     if token and not refresh:
         return token
-    response = check(requests.post("https://hrx-backend.sequoia.com/idm/v1/contacts/verify-email", headers=HEADERS, json={"email":email}))
+    response = check(requests.post("https://hrx-backend.sequoia.com/idm/v1/contacts/verify-email", headers=HEADERS,
+                                   json={"email": email}))
     password = keyring.get_password(KEYRING_EMAIL, email)
     if not password:
         password = inquirer.password(message='Password')
-    response = check(requests.post("https://hrx-backend.sequoia.com/idm/users/login", headers=HEADERS, json={"email":email,"password":password,"browserHash":BROWSER_HASH,"userType":"employee"}))
+    response = check(requests.post("https://hrx-backend.sequoia.com/idm/users/login", headers=HEADERS,
+                                   json={"email": email, "password": password, "browserHash": BROWSER_HASH,
+                                         "userType": "employee"}))
     login_json = response.json()
     login_data = login_json["data"]
     user_details = login_data["userDetails"]
@@ -57,21 +61,24 @@ def get_token(config, refresh=False):
         factors = login_data.get("factors")
         if factors:
             factor = factors[0]
-            print("Using MFA %s %s" % (factor.get("factorType","unknown"), factor.get("profile",{}).get("phoneNumber")))
+            print(
+                "Using MFA %s %s" % (factor.get("factorType", "unknown"), factor.get("profile", {}).get("phoneNumber")))
         mfa_code = inquirer.text(message="MFA Code")
         headers = {"apitoken": token}
         headers.update(HEADERS)
-        response = check(requests.post("https://hrx-backend.sequoia.com/idm/users/login/verify-mfa", headers=headers, json={"passCode":mfa_code,"browserHash":BROWSER_HASH}))
+        response = check(requests.post("https://hrx-backend.sequoia.com/idm/users/login/verify-mfa", headers=headers,
+                                       json={"passCode": mfa_code, "browserHash": BROWSER_HASH}))
     keyring.set_password(KEYRING_EMAIL, email, password)
     keyring.set_password(KEYRING_TOKEN, email, token)
     return token
+
 
 def get_config():
     config = {}
     if isfile(config_file):
         with open(config_file) as f:
             config = json.load(f)
-    if CONFIG_VERSION == int(config.get("version","0")):
+    if CONFIG_VERSION == int(config.get("version", "0")):
         return config
     config["version"] = CONFIG_VERSION
     hours = []
@@ -115,7 +122,7 @@ def get_config():
     # only persist configuration if test worked
     if not isdir(config_path):
         os.makedirs(config_path, exist_ok=True)
-    with open(config_file,'w') as f:
+    with open(config_file, 'w') as f:
         json.dump(config, f)
     return config
 
@@ -125,30 +132,39 @@ def token_headers(token):
     headers.update(HEADERS)
     return headers
 
+
 def get_locations(token):
-    response = check(requests.get("https://hrx-backend.sequoia.com/rtw/resv/client/locations", headers=token_headers(token)))
+    response = check(
+        requests.get("https://hrx-backend.sequoia.com/rtw/resv/client/locations", headers=token_headers(token)))
     return [(x["locationName"], x) for x in response.json()["data"]["locations"]]
+
 
 def format_date(dt):
     return "%02d-%02d-%d" % (dt.day, dt.month, dt.year)
+
 
 def parse_date(dt):
     day, month, year = dt.split("-")
     return date(int(year), int(month), int(day))
 
+
 def get_summary(token, start, end):
-    response = check(requests.get("https://hrx-backend.sequoia.com/rtw/client/dashboard/summary?statStart=%s&statEnd=%s" % (format_date(start), format_date(end)), headers=token_headers(token)))
+    response = check(requests.get(
+        "https://hrx-backend.sequoia.com/rtw/client/dashboard/summary?statStart=%s&statEnd=%s" % (
+        format_date(start), format_date(end)), headers=token_headers(token)))
     out = set()
     for stat in response.json()["data"]["weeklyStats"]:
         out.add(parse_date(stat["date"]))
     return out
-    
+
+
 def get_followings(token, start, end):
-    response = check(requests.get("https://hrx-backend.sequoia.com/rtw/client/followings?startDate=%s&endDate=%s" % (format_date(start), format_date(end)), headers=token_headers(token)))
+    response = check(requests.get("https://hrx-backend.sequoia.com/rtw/client/followings?startDate=%s&endDate=%s" % (
+    format_date(start), format_date(end)), headers=token_headers(token)))
     out = []
     for user in response.json()["data"]["followings"]:
         name = user["fullName"]
-        reservations = user.get("reservationsMetadata",[])
+        reservations = user.get("reservationsMetadata", [])
         days = set()
         if reservations:
             for reservation in reservations:
@@ -158,8 +174,10 @@ def get_followings(token, start, end):
             out.append((name, days))
     return out
 
+
 def pretty_time(dt):
     return dt.astimezone(pytz.utc).isoformat().replace('+00:00', 'Z')
+
 
 def add_reservations(token, location, dates, config):
     body = {
@@ -187,8 +205,11 @@ def add_reservations(token, location, dates, config):
                 "isPrivate": False
             })
     if body['reservations']:
-        check(requests.post("https://hrx-backend.sequoia.com/rtw/resv/client/reservations", headers=token_headers(token), json=body))
+        check(
+            requests.post("https://hrx-backend.sequoia.com/rtw/resv/client/reservations", headers=token_headers(token),
+                          json=body))
     return check_tasks
+
 
 def do_inquiry(message, choices, default=None):
     if len(choices) == 0:
@@ -210,37 +231,54 @@ def do_inquiry(message, choices, default=None):
         raise Exception("No choice")
     return answers['choice']
 
+
 def get_pending_tasks(token):
-    response = check(requests.get("https://hrx-backend.sequoia.com/rtw/client/pending-task", headers=token_headers(token)))
+    response = check(
+        requests.get("https://hrx-backend.sequoia.com/rtw/client/pending-task", headers=token_headers(token)))
     return [x["taskId"] for x in response.json()["data"]["tasks"]]
 
+
 def get_task(token, task_id):
-    response = check(requests.get("https://hrx-backend.sequoia.com/rtw/client/task/info?taskId=%s" % task_id, headers=token_headers(token)))
+    response = check(requests.get("https://hrx-backend.sequoia.com/rtw/client/task/info?taskId=%s" % task_id,
+                                  headers=token_headers(token)))
     return response.json()["data"]
 
+
 def respond_to_task(token, task_id, answers):
-    check(requests.post("https://hrx-backend.sequoia.com/rtw/client/task-response", headers=token_headers(token), json={"taskId":task_id,"response":answers}))
+    check(requests.post("https://hrx-backend.sequoia.com/rtw/client/task-response", headers=token_headers(token),
+                        json={"taskId": task_id, "response": answers}))
+
 
 def get_floors(token, task_id):
-    response = check(requests.get("https://hrx-backend.sequoia.com/rtw/client/space-bookings/floors?taskId=%s" % task_id, headers=token_headers(token)))
+    response = check(
+        requests.get("https://hrx-backend.sequoia.com/rtw/client/space-bookings/floors?taskId=%s" % task_id,
+                     headers=token_headers(token)))
     return [(x["floorName"], x["floorId"]) for x in response.json()["data"]["floors"] if x["status"] == "active"]
 
+
 def get_spaces(token, adjective, task_id, floor_id, start_time, end_time):
-    url = "https://hrx-backend.sequoia.com/rtw/client/space-bookings/%s/spaces?taskId=%s&floorId=%s&startTime=%s&endTime=%s" % (adjective, task_id, floor_id, start_time, end_time)
+    url = "https://hrx-backend.sequoia.com/rtw/client/space-bookings/%s/spaces?taskId=%s&floorId=%s&startTime=%s&endTime=%s" % (
+    adjective, task_id, floor_id, start_time, end_time)
     response = check(requests.get(url, headers=token_headers(token)))
     return response.json()["data"]["spaces"]
 
+
 def reserve_space(token, task_id, start_time, end_time, space_id, user_id, reservation_id):
-    response = check(requests.post("https://hrx-backend.sequoia.com/rtw/client/space-bookings/space", headers=token_headers(token), json={"taskId":task_id,"startTime":start_time,"endTime":end_time,"spaceId":space_id,"userId":user_id,"reservationId":reservation_id}
-))
+    response = check(
+        requests.post("https://hrx-backend.sequoia.com/rtw/client/space-bookings/space", headers=token_headers(token),
+                      json={"taskId": task_id, "startTime": start_time, "endTime": end_time, "spaceId": space_id,
+                            "userId": user_id, "reservationId": reservation_id}
+                      ))
     return response.json()["data"]["label"]
+
 
 def get_space(token, task, floor_id, config):
     task_id = task["taskId"]
     start_time = task["reservationStartTime"]
     end_time = task["reservationEndTime"]
     available_spaces = get_spaces(token, "available", task_id, floor_id, start_time, end_time)
-    preferred_space_id = inquirer.text(message="Preferred space ID (press return for none)", default=config.get("preferred_space_id"))
+    preferred_space_id = inquirer.text(message="Preferred space ID (press return for none)",
+                                       default=config.get("preferred_space_id"))
     all_spaces = []
     available_space_set = set()
     for available_space in available_spaces:
@@ -273,6 +311,7 @@ def get_space(token, task, floor_id, config):
         if unique_space_id in available_space_set:
             return unique_space_id
 
+
 def run_tasks(token, config, pending_task_ids):
     for pending_task_id in pending_task_ids:
         task = get_task(token, pending_task_id)
@@ -284,9 +323,9 @@ def run_tasks(token, config, pending_task_ids):
         card_info = task_metadata["cardInfo"]
         print("You have a pending task - %s:\n\n\t%s %s %s\n\t%s\n\t%s\n" % (
             task["taskTitle"],
-            card_info.get("displayTitle",""),
-            card_info.get("title",""),
-            card_info.get("heading",""),
+            card_info.get("displayTitle", ""),
+            card_info.get("title", ""),
+            card_info.get("heading", ""),
             card_info.get("basicSubtitle", ""),
             card_info.get("caption", "")
         ))
@@ -330,6 +369,7 @@ def run_tasks(token, config, pending_task_ids):
         space_label = reserve_space(token, task_id, start_time, end_time, space_id, user_id, reservation_id)
         print("You have booked '%s'" % space_label)
 
+
 def print_weeks(weeks, today, booked, followings, choices):
     rows = []
     for week in weeks:
@@ -363,6 +403,7 @@ def print_weeks(weeks, today, booked, followings, choices):
     t.add_rows(rows, header=False)
     print(t.draw())
 
+
 def run():
     try:
         from . import __version__
@@ -383,14 +424,14 @@ def run():
     if weekday < 5:
         start = today - timedelta(days=weekday)
     else:
-        start = today + timedelta(days=7-weekday)
+        start = today + timedelta(days=7 - weekday)
     days = 14
     end = start + timedelta(days=days)
     booked = get_summary(token, start, end)
     pending_task_ids = get_pending_tasks(token)
     followings = get_followings(token, start, end)
     choices = []
-    weeks = [[],[]]
+    weeks = [[], []]
     for day_offset in range(days):
         day = start + timedelta(days=day_offset)
         weekday = day.weekday()
@@ -429,5 +470,7 @@ def run():
             if pending_task_ids:
                 run_tasks(token, config, pending_task_ids)
                 break
+
+
 if __name__ == "__main__":
     run()
