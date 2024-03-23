@@ -72,6 +72,7 @@ brew upgrade wawona
 - uses public endpoints discovered from the web UI
 - no warranty or stability guarantees, could break one day if something changes on their end
 - password/token is stored in system keychain
+- add/remove followers using the app. basically if it is not here or it breaks here, use the real app/site.
 - named for the [drive-thru sequoia](https://en.wikipedia.org/wiki/Wawona_Tree)
 
 ## Reset
