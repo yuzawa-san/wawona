@@ -413,7 +413,7 @@ def run():
         from . import __version__
     except ImportError:
         __version__ = None
-    version = "v%s" % __version__ if __version__ else "unknown"
+    version = "unknown" if not __version__ else "v%s" % __version__
     print("\U0001F332 \033[32mW A W O N A\033[0m \U0001F332\n\n%s - https://github.com/yuzawa-san/wawona\n" % version)
     config = get_config()
     token = get_token(config)
