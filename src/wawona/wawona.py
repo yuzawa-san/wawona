@@ -25,7 +25,8 @@ HEADERS = {
     'locale-timezone': 'America/New_York',
     'origin': 'https://login.sequoia.com',
     'referer': 'https://login.sequoia.com/',
-    'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
+    'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) '
+                  'Chrome/122.0.0.0 Safari/537.36'
 }
 KEYRING_EMAIL = "login.sequoia.com"
 KEYRING_TOKEN = "hrx-backend.sequoia.com"
@@ -33,10 +34,13 @@ CHECK_MARK = "\u2705"
 CONFIG_VERSION = 1
 
 
+class ApiException(Exception):
+    pass
+
+
 def check(response):
     if response.status_code != 200:
-        print(response, response.json())
-        raise Exception("request failed")
+        raise ApiException("%s %s" % (response, response.json()))
     return response
 
 
@@ -45,8 +49,8 @@ def get_token(config, refresh=False):
     token = keyring.get_password(KEYRING_TOKEN, email)
     if token and not refresh:
         return token
-    response = check(requests.post("https://hrx-backend.sequoia.com/idm/v1/contacts/verify-email", headers=HEADERS,
-                                   json={"email": email}))
+    check(requests.post("https://hrx-backend.sequoia.com/idm/v1/contacts/verify-email", headers=HEADERS,
+                        json={"email": email}))
     password = keyring.get_password(KEYRING_EMAIL, email)
     if not password:
         password = inquirer.password(message='Password')
@@ -66,8 +70,8 @@ def get_token(config, refresh=False):
         mfa_code = inquirer.text(message="MFA Code")
         headers = {"apitoken": token}
         headers.update(HEADERS)
-        response = check(requests.post("https://hrx-backend.sequoia.com/idm/users/login/verify-mfa", headers=headers,
-                                       json={"passCode": mfa_code, "browserHash": BROWSER_HASH}))
+        check(requests.post("https://hrx-backend.sequoia.com/idm/users/login/verify-mfa", headers=headers,
+                            json={"passCode": mfa_code, "browserHash": BROWSER_HASH}))
     keyring.set_password(KEYRING_EMAIL, email, password)
     keyring.set_password(KEYRING_TOKEN, email, token)
     return token
@@ -151,7 +155,7 @@ def parse_date(dt):
 def get_summary(token, start, end):
     response = check(requests.get(
         "https://hrx-backend.sequoia.com/rtw/client/dashboard/summary?statStart=%s&statEnd=%s" % (
-        format_date(start), format_date(end)), headers=token_headers(token)))
+            format_date(start), format_date(end)), headers=token_headers(token)))
     out = set()
     for stat in response.json()["data"]["weeklyStats"]:
         out.add(parse_date(stat["date"]))
@@ -160,7 +164,7 @@ def get_summary(token, start, end):
 
 def get_followings(token, start, end):
     response = check(requests.get("https://hrx-backend.sequoia.com/rtw/client/followings?startDate=%s&endDate=%s" % (
-    format_date(start), format_date(end)), headers=token_headers(token)))
+        format_date(start), format_date(end)), headers=token_headers(token)))
     out = []
     for user in response.json()["data"]["followings"]:
         name = user["fullName"]
@@ -186,11 +190,10 @@ def add_reservations(token, location, dates, config):
         "reservations": []
     }
     tz = pytz.timezone(location["locationTimezone"])
-    # the earliest start will be a the top of the next hour
+    # the earliest start will be the top of the next hour
     min_start = (datetime.now(tz) + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
     check_tasks = False
     for day in dates:
-        iso_date = day.isoformat()
         start = tz.localize(datetime.combine(day, time(int(config["start_hour"]))))
         if start <= min_start:
             start = min_start
@@ -257,8 +260,9 @@ def get_floors(token, task_id):
 
 
 def get_spaces(token, adjective, task_id, floor_id, start_time, end_time):
-    url = "https://hrx-backend.sequoia.com/rtw/client/space-bookings/%s/spaces?taskId=%s&floorId=%s&startTime=%s&endTime=%s" % (
-    adjective, task_id, floor_id, start_time, end_time)
+    url = ("https://hrx-backend.sequoia.com/rtw/client/space-bookings/%s/spaces?taskId=%s&floorId=%s&startTime=%s"
+           "&endTime=%s") % (
+              adjective, task_id, floor_id, start_time, end_time)
     response = check(requests.get(url, headers=token_headers(token)))
     return response.json()["data"]["spaces"]
 
@@ -333,7 +337,7 @@ def run_tasks(token, config, pending_task_ids):
             continue
         questions = task_data["questions"]
         if not questions or not task_data["hasQuestionnaire"]:
-            raise Exception("Task without questionaire not supported")
+            raise Exception("Task without questionnaire not supported")
         if task_data["hasDocumentAck"]:
             raise Exception("Task with document acknowledgement not supported")
         answers = []
@@ -407,15 +411,15 @@ def print_weeks(weeks, today, booked, followings, choices):
 def run():
     try:
         from . import __version__
-        version = "v%s" % __version__
-    except:
-        version = "unknown"
+    except ImportError:
+        __version__ = None
+    version = "v%s" % __version__ if __version__ else "unknown"
     print("\U0001F332 \033[32mW A W O N A\033[0m \U0001F332\n\n%s - https://github.com/yuzawa-san/wawona\n" % version)
     config = get_config()
     token = get_token(config)
     try:
         pending_task_ids = get_pending_tasks(token)
-    except:
+    except ApiException:
         token = get_token(config, True)
         pending_task_ids = get_pending_tasks(token)
     run_tasks(token, config, pending_task_ids)
@@ -428,7 +432,6 @@ def run():
     days = 14
     end = start + timedelta(days=days)
     booked = get_summary(token, start, end)
-    pending_task_ids = get_pending_tasks(token)
     followings = get_followings(token, start, end)
     choices = []
     weeks = [[], []]
