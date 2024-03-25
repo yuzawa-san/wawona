@@ -322,10 +322,8 @@ def run_tasks(token, config, pending_task_ids):
         task_id = task["taskId"]
         task_metadata = task["taskMetadata"]
         task_data = task_metadata.get("data")
-        if not task_data:
-            continue
         card_info = task_metadata["cardInfo"]
-        print("You have a pending task - %s:\n\n\t%s %s %s\n\t%s\n\t%s\n" % (
+        print("%s:\n\n\t%s %s %s\n\t%s\n\t%s\n" % (
             task["taskTitle"],
             card_info.get("displayTitle", ""),
             card_info.get("title", ""),
@@ -333,6 +331,8 @@ def run_tasks(token, config, pending_task_ids):
             card_info.get("basicSubtitle", ""),
             card_info.get("caption", "")
         ))
+        if not task_data:
+            continue
         if not inquirer.confirm("Complete task?", default=True):
             continue
         questions = task_data["questions"]
