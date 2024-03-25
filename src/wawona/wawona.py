@@ -472,7 +472,8 @@ def run():
             pending_task_ids = get_pending_tasks(token)
             if pending_task_ids:
                 run_tasks(token, config, pending_task_ids)
-                break
+                return
+        print("Unable to find pending tasks.")
 
 
 if __name__ == "__main__":
