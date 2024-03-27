@@ -47,7 +47,34 @@ This tool is provides streamlined workflows:
 +----------------------+-----+-----+-----+-----+-----+
 | Me                   | x   | x   | x   |     |     |
 +----------------------+-----+-----+-----+-----+-----+
+Waiting for pending tasks...
+Reservation Acknowledgement Pending:
 
+  Mar 27 New York Reservation
+  Complete Self-Screening
+  Seat Not Selected
+
+[?] Complete task? (Y/n): 
+[?] I am healthy and not sick?: Yes (only choice)
+[?] Floor: Floor 2 (only choice)
+[?] Preferred space ID (press return for none): 
+Preferred space is not available
+[?] Space: 
+   Desk 35
+   Desk 36
+   Desk 37
+   Desk 38
+   Desk 39
+   Desk 40
+ > Desk 41
+   Desk 42 (Juan Fnulwoln)
+   Desk 43
+   Desk 44 (Maeve Melwosniwnaiko)
+   Desk 45
+   Desk 46
+   Desk 47
+
+You have booked 'Desk 41'
 ```
 
 ## Install
@@ -78,6 +105,7 @@ brew upgrade wawona
 - Run it from your terminal: `wawona`
 - On initial run, you will be asked provide configuration: email and password.
 - You may be prompted to for an MFA token periodically.
+- Use the up/down arrows, spacebar, and return keys to select items in lists
 
 ### Reset
 
