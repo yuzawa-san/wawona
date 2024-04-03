@@ -2,6 +2,7 @@ import json
 import locale
 import os
 import re
+import sys
 from datetime import date, datetime, time, timedelta
 from os.path import isfile, isdir
 from time import sleep
@@ -33,15 +34,27 @@ KEYRING_TOKEN = "hrx-backend.sequoia.com"
 CHECK_MARK = "\u2705"
 CONFIG_VERSION = 1
 
+VERBOSE = False
+for arg in sys.argv:
+    if arg == "reset":
+        print("Removing config file")
+        os.remove(config_file)
+    elif arg == "--verbose":
+        VERBOSE = True
+
 
 class ApiException(Exception):
     pass
 
 
 def api_call(method, url, **kwargs):
+    if VERBOSE:
+        print("API REQUEST: %s %s %s %s" % (method, url, kwargs.get("headers"), kwargs.get("json")))
     response = requests.request(method, url, **kwargs)
     if response.status_code != 200:
         raise ApiException("%s %s %s %s %s" % (method, url, kwargs.get("headers"), response, response.json()))
+    if VERBOSE:
+        print("API RESPONSE: %s %s" % (response, response.json()))
     return response
 
 

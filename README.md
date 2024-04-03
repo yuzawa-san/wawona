@@ -106,10 +106,17 @@ brew upgrade wawona
 - On initial run, you will be asked provide configuration: email and password.
 - You may be prompted to for an MFA token periodically.
 - Use the up/down arrows, spacebar, and return keys to select items in lists
+- Troubleshooting errors with `wawona --verbose`
 
 ### Reset
 
 If you need to reset to factory defaults (maybe if you changed your password), remove the configuration:
+
+```console
+wawona reset
+```
+
+As a last resort, if all else fails:
 
 ```console
 rm -rf ~/.config/wawona/
