@@ -166,7 +166,10 @@ def get_followings(token, start, end):
     response = check(requests.get("https://hrx-backend.sequoia.com/rtw/client/followings?startDate=%s&endDate=%s" % (
         format_date(start), format_date(end)), headers=token_headers(token)))
     out = []
-    for user in response.json()["data"]["followings"]:
+    followings = response.json()["data"]["followings"]
+    if not followings:
+        print("You are not following any coworkers. Add them site or app and they will appear calendar below.")
+    for user in followings:
         name = user["fullName"]
         reservations = user.get("reservationsMetadata", [])
         days = set()
