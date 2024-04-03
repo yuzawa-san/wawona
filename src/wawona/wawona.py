@@ -38,9 +38,10 @@ class ApiException(Exception):
     pass
 
 
-def check(response):
+def api_call(method, url, **kwargs):
+    response = requests.request(method, url, **kwargs)
     if response.status_code != 200:
-        raise ApiException("%s %s" % (response, response.json()))
+        raise ApiException("%s %s %s %s %s" % (method, url, kwargs.get("headers"), response, response.json()))
     return response
 
 
@@ -49,14 +50,14 @@ def get_token(config, refresh=False):
     token = keyring.get_password(KEYRING_TOKEN, email)
     if token and not refresh:
         return token
-    check(requests.post("https://hrx-backend.sequoia.com/idm/v1/contacts/verify-email", headers=HEADERS,
-                        json={"email": email}))
+    api_call(method='POST', url="https://hrx-backend.sequoia.com/idm/v1/contacts/verify-email", headers=HEADERS,
+             json={"email": email})
     password = keyring.get_password(KEYRING_EMAIL, email)
     if not password:
         password = inquirer.password(message='Password')
-    response = check(requests.post("https://hrx-backend.sequoia.com/idm/users/login", headers=HEADERS,
-                                   json={"email": email, "password": password, "browserHash": BROWSER_HASH,
-                                         "userType": "employee"}))
+    response = api_call(method='POST', url="https://hrx-backend.sequoia.com/idm/users/login", headers=HEADERS,
+                        json={"email": email, "password": password, "browserHash": BROWSER_HASH,
+                              "userType": "employee"})
     login_json = response.json()
     login_data = login_json["data"]
     user_details = login_data["userDetails"]
@@ -70,8 +71,8 @@ def get_token(config, refresh=False):
         mfa_code = inquirer.text(message="MFA Code")
         headers = {"apitoken": token}
         headers.update(HEADERS)
-        check(requests.post("https://hrx-backend.sequoia.com/idm/users/login/verify-mfa", headers=headers,
-                            json={"passCode": mfa_code, "browserHash": BROWSER_HASH}))
+        api_call(method='POST', url="https://hrx-backend.sequoia.com/idm/users/login/verify-mfa", headers=headers,
+                 json={"passCode": mfa_code, "browserHash": BROWSER_HASH})
     keyring.set_password(KEYRING_EMAIL, email, password)
     keyring.set_password(KEYRING_TOKEN, email, token)
     return token
@@ -138,8 +139,8 @@ def token_headers(token):
 
 
 def get_locations(token):
-    response = check(
-        requests.get("https://hrx-backend.sequoia.com/rtw/resv/client/locations", headers=token_headers(token)))
+    response = api_call(
+        method='GET', url="https://hrx-backend.sequoia.com/rtw/resv/client/locations", headers=token_headers(token))
     return [(x["locationName"], x) for x in response.json()["data"]["locations"]]
 
 
@@ -153,9 +154,9 @@ def parse_date(dt):
 
 
 def get_summary(token, start, end):
-    response = check(requests.get(
-        "https://hrx-backend.sequoia.com/rtw/client/dashboard/summary?statStart=%s&statEnd=%s" % (
-            format_date(start), format_date(end)), headers=token_headers(token)))
+    response = api_call(method='GET',
+                        url="https://hrx-backend.sequoia.com/rtw/client/dashboard/summary?statStart=%s&statEnd=%s" % (
+                            format_date(start), format_date(end)), headers=token_headers(token))
     out = set()
     for stat in response.json()["data"]["weeklyStats"]:
         out.add(parse_date(stat["date"]))
@@ -163,8 +164,9 @@ def get_summary(token, start, end):
 
 
 def get_followings(token, start, end):
-    response = check(requests.get("https://hrx-backend.sequoia.com/rtw/client/followings?startDate=%s&endDate=%s" % (
-        format_date(start), format_date(end)), headers=token_headers(token)))
+    response = api_call(method='GET',
+                        url="https://hrx-backend.sequoia.com/rtw/client/followings?startDate=%s&endDate=%s" % (
+                            format_date(start), format_date(end)), headers=token_headers(token))
     out = []
     followings = response.json()["data"]["followings"]
     if not followings:
@@ -211,9 +213,10 @@ def add_reservations(token, location, dates, config):
                 "isPrivate": False
             })
     if body['reservations']:
-        check(
-            requests.post("https://hrx-backend.sequoia.com/rtw/resv/client/reservations", headers=token_headers(token),
-                          json=body))
+        api_call(
+            method='POST', url="https://hrx-backend.sequoia.com/rtw/resv/client/reservations",
+            headers=token_headers(token),
+            json=body)
     return check_tasks
 
 
@@ -239,26 +242,27 @@ def do_inquiry(message, choices, default=None):
 
 
 def get_pending_tasks(token):
-    response = check(
-        requests.get("https://hrx-backend.sequoia.com/rtw/client/pending-task", headers=token_headers(token)))
+    response = api_call(method='GET', url="https://hrx-backend.sequoia.com/rtw/client/pending-task",
+                        headers=token_headers(token))
     return [x["taskId"] for x in response.json()["data"]["tasks"]]
 
 
 def get_task(token, task_id):
-    response = check(requests.get("https://hrx-backend.sequoia.com/rtw/client/task/info?taskId=%s" % task_id,
-                                  headers=token_headers(token)))
+    response = api_call(method='GET', url="https://hrx-backend.sequoia.com/rtw/client/task/info?taskId=%s" % task_id,
+                        headers=token_headers(token))
     return response.json()["data"]
 
 
 def respond_to_task(token, task_id, answers):
-    check(requests.post("https://hrx-backend.sequoia.com/rtw/client/task-response", headers=token_headers(token),
-                        json={"taskId": task_id, "response": answers}))
+    api_call(method='POST', url="https://hrx-backend.sequoia.com/rtw/client/task-response",
+             headers=token_headers(token),
+             json={"taskId": task_id, "response": answers})
 
 
 def get_floors(token, task_id):
-    response = check(
-        requests.get("https://hrx-backend.sequoia.com/rtw/client/space-bookings/floors?taskId=%s" % task_id,
-                     headers=token_headers(token)))
+    response = api_call(
+        method='GET', url="https://hrx-backend.sequoia.com/rtw/client/space-bookings/floors?taskId=%s" % task_id,
+        headers=token_headers(token))
     return [(x["floorName"], x["floorId"]) for x in response.json()["data"]["floors"] if x["status"] == "active"]
 
 
@@ -266,16 +270,16 @@ def get_spaces(token, adjective, task_id, floor_id, start_time, end_time):
     url = ("https://hrx-backend.sequoia.com/rtw/client/space-bookings/%s/spaces?taskId=%s&floorId=%s&startTime=%s"
            "&endTime=%s") % (
               adjective, task_id, floor_id, start_time, end_time)
-    response = check(requests.get(url, headers=token_headers(token)))
+    response = api_call(method='GET', url=url, headers=token_headers(token))
     return response.json()["data"]["spaces"]
 
 
 def reserve_space(token, task_id, start_time, end_time, space_id, user_id, reservation_id):
-    response = check(
-        requests.post("https://hrx-backend.sequoia.com/rtw/client/space-bookings/space", headers=token_headers(token),
-                      json={"taskId": task_id, "startTime": start_time, "endTime": end_time, "spaceId": space_id,
-                            "userId": user_id, "reservationId": reservation_id}
-                      ))
+    response = api_call(method='POST', url="https://hrx-backend.sequoia.com/rtw/client/space-bookings/space",
+                        headers=token_headers(token),
+                        json={"taskId": task_id, "startTime": start_time, "endTime": end_time, "spaceId": space_id,
+                              "userId": user_id, "reservationId": reservation_id}
+                        )
     return response.json()["data"]["label"]
 
 
