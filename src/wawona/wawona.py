@@ -75,7 +75,8 @@ def get_token(config, refresh=False):
     login_data = login_json["data"]
     user_details = login_data["userDetails"]
     token = user_details["apiToken"]
-    if user_details["oktaStatus"] == "MFA_CHALLENGE":
+    okta_status = user_details["oktaStatus"]
+    if okta_status == "MFA_CHALLENGE":
         factors = login_data.get("factors")
         if factors:
             factor = factors[0]
@@ -86,6 +87,10 @@ def get_token(config, refresh=False):
         headers.update(HEADERS)
         api_call(method='POST', url="https://hrx-backend.sequoia.com/idm/users/login/verify-mfa", headers=headers,
                  json={"passCode": mfa_code, "browserHash": BROWSER_HASH})
+    elif okta_status != "SUCCESS":
+        # https://developer.okta.com/docs/reference/api/authn/#transaction-state
+        raise ApiException("Invalid okta status %s: "
+                           "Please authenticate via https://px.sequoia.com/workplace before retrying." % okta_status)
     keyring.set_password(KEYRING_EMAIL, email, password)
     keyring.set_password(KEYRING_TOKEN, email, token)
     return token
