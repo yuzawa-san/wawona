@@ -7,7 +7,7 @@ by [@yuzawa-san](https://github.com/yuzawa-san/)
 Easily make office reservations in sequoia from the command line.
 This tool is provides streamlined workflows:
 
-- viewing the next two week's bookings from coworkers that you have followed
+- viewing the next two week's bookings from coworkers that you have followed (in the app/[site](https://px.sequoia.com/workplace))
 - booking multiple days at a time
 - doing space reservations (with the ability to save your preferred space)
 - if an option contains a single choice, automatically select that choice
@@ -57,8 +57,6 @@ Reservation Acknowledgement Pending:
 [?] Complete task? (Y/n): 
 [?] I am healthy and not sick?: Yes (only choice)
 [?] Floor: Floor 2 (only choice)
-[?] Preferred space ID (press return for none): 
-Preferred space is not available
 [?] Space: 
    Desk 35
    Desk 36
