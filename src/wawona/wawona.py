@@ -188,7 +188,8 @@ def get_followings(token, start, end):
     out = []
     followings = response.json()["data"]["followings"]
     if not followings:
-        print("You are not following any coworkers. Add them site or app and they will appear calendar below.")
+        print("You are not following any coworkers.\n"
+              "Add them in https://px.sequoia.com/workplace or the app, and they will appear calendar below.")
     for user in followings:
         name = user["fullName"]
         reservations = user.get("reservationsMetadata", [])
