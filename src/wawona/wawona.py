@@ -284,19 +284,20 @@ def get_space(token, task, floor_id, config):
     start_time = task["reservationStartTime"]
     end_time = task["reservationEndTime"]
     available_spaces = get_spaces(token, "available", task_id, floor_id, start_time, end_time)
-    preferred_space_id = inquirer.text(message="Preferred space ID (press return for none)",
-                                       default=config.get("preferred_space_id"))
+    default = None
+    preferred_space_id = config.get("preferred_space_id")
+    if not preferred_space_id:
+        preferred_space_id = inquirer.text(message="Preferred space ID (press return for none)")
     all_spaces = []
     available_space_set = set()
     for available_space in available_spaces:
         space_id = available_space["spaceId"]
         unique_space_id = available_space["uniqueSpaceId"]
         if space_id == preferred_space_id:
-            return unique_space_id
+            default = unique_space_id
         all_spaces.append(available_space)
         available_space_set.add(unique_space_id)
     booked_spaces = get_spaces(token, "booked", task_id, floor_id, start_time, end_time)
-    default = None
     for booked_space in booked_spaces:
         space_id = booked_space["spaceId"]
         if space_id == preferred_space_id:
@@ -313,10 +314,10 @@ def get_space(token, task, floor_id, config):
             label = "\033[32m%s\033[0m" % raw_label
         choices.append((label, space["uniqueSpaceId"]))
     while True:
-        print("Preferred space is not available")
         unique_space_id = do_inquiry("Space", choices, default)
         if unique_space_id in available_space_set:
             return unique_space_id
+        print("Invalid selection")
 
 
 def run_tasks(token, config, pending_task_ids):
