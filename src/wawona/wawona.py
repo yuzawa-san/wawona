@@ -82,11 +82,16 @@ def get_token(config, refresh=False):
             factor = factors[0]
             print(
                 "Using MFA %s %s" % (factor.get("factorType", "unknown"), factor.get("profile", {}).get("phoneNumber")))
-        mfa_code = inquirer.text(message="MFA Code")
-        headers = {"apitoken": token}
-        headers.update(HEADERS)
-        api_call(method='POST', url="https://hrx-backend.sequoia.com/idm/users/login/verify-mfa", headers=headers,
-                 json={"passCode": mfa_code, "browserHash": BROWSER_HASH})
+        while True:
+            mfa_code = inquirer.text(message="MFA Code")
+            headers = {"apitoken": token}
+            headers.update(HEADERS)
+            try:
+                api_call(method='POST', url="https://hrx-backend.sequoia.com/idm/users/login/verify-mfa", headers=headers,
+                         json={"passCode": mfa_code, "browserHash": BROWSER_HASH})
+                break
+            except ApiException as e:
+                print("MFA Verification Failed", e)
     elif okta_status != "SUCCESS":
         # https://developer.okta.com/docs/reference/api/authn/#transaction-state
         raise ApiException("Invalid okta status %s: "
