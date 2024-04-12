@@ -51,6 +51,9 @@ def api_call(method, url, **kwargs):
     if VERBOSE:
         print("API REQUEST: %s %s %s %s" % (method, url, kwargs.get("headers"), kwargs.get("json")))
     response = requests.request(method, url, **kwargs)
+    response_json = response.json()
+    if response.status_code == 400 and not response_json.get("success"):
+        raise ApiException(response_json.get("message"))
     if response.status_code != 200:
         raise ApiException("%s %s %s %s %s" % (method, url, kwargs.get("headers"), response, response.json()))
     if VERBOSE:
@@ -87,8 +90,8 @@ def get_token(config, refresh=False):
             headers = {"apitoken": token}
             headers.update(HEADERS)
             try:
-                api_call(method='POST', url="https://hrx-backend.sequoia.com/idm/users/login/verify-mfa", headers=headers,
-                         json={"passCode": mfa_code, "browserHash": BROWSER_HASH})
+                api_call(method='POST', url="https://hrx-backend.sequoia.com/idm/users/login/verify-mfa",
+                         headers=headers, json={"passCode": mfa_code, "browserHash": BROWSER_HASH})
                 break
             except ApiException as e:
                 print("MFA Verification Failed", e)
