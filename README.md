@@ -123,8 +123,10 @@ rm -rf ~/.config/wawona/
 ## Notes
 
 - Not affliated with sequoia
+- Does not support SSO
 - Uses public endpoints discovered from the web UI
 - No warranty or stability guarantees, could break one day if something changes on their end
 - Password/token is stored in system keychain
-- Add/remove followers using the app. basically if it is not here or it breaks here, use the real app/site.
+- Add/remove followers using the app.
+- Basically if it is not here or it breaks here, use the real app/site.
 - Named for the [drive-thru sequoia](https://en.wikipedia.org/wiki/Wawona_Tree)
