@@ -51,14 +51,20 @@ def api_call(method, url, **kwargs):
     if VERBOSE:
         print("API REQUEST: %s %s %s %s" % (method, url, kwargs.get("headers"), kwargs.get("json")))
     response = requests.request(method, url, **kwargs)
-    response_json = response.json()
-    if response.status_code == 400 and not response_json.get("success"):
-        raise ApiException(response_json.get("message"))
-    if response.status_code != 200:
-        raise ApiException("%s %s %s %s %s" % (method, url, kwargs.get("headers"), response, response.json()))
+    status_code = response.status_code
+    response_headers = response.headers
+    content_type = response_headers.get('Content-Type') or ''
+    response_json = {}
+    if content_type.startswith('application/json'):
+        response_json = response.json()
     if VERBOSE:
-        print("API RESPONSE: %s %s" % (response, response.json()))
-    return response
+        print("API RESPONSE: %s %s %s" % (status_code, response_headers, response_json))
+    if status_code != 200:
+        if status_code == 400 and not response_json.get("success"):
+            raise ApiException(response_json.get("message"))
+        raise ApiException("%s %s %s %s %s %s" %
+                           (method, url, kwargs.get("headers"), status_code, response_headers, response_json))
+    return response_json
 
 
 def get_token(config, refresh=False):
@@ -71,10 +77,9 @@ def get_token(config, refresh=False):
     password = keyring.get_password(KEYRING_EMAIL, email)
     if not password:
         password = inquirer.password(message='Password')
-    response = api_call(method='POST', url="https://hrx-backend.sequoia.com/idm/users/login", headers=HEADERS,
-                        json={"email": email, "password": password, "browserHash": BROWSER_HASH,
-                              "userType": "employee"})
-    login_json = response.json()
+    login_json = api_call(method='POST', url="https://hrx-backend.sequoia.com/idm/users/login", headers=HEADERS,
+                          json={"email": email, "password": password, "browserHash": BROWSER_HASH,
+                                "userType": "employee"})
     login_data = login_json["data"]
     user_details = login_data["userDetails"]
     token = user_details["apiToken"]
@@ -167,7 +172,7 @@ def token_headers(token):
 def get_locations(token):
     response = api_call(
         method='GET', url="https://hrx-backend.sequoia.com/rtw/resv/client/locations", headers=token_headers(token))
-    return [(x["locationName"], x) for x in response.json()["data"]["locations"]]
+    return [(x["locationName"], x) for x in response["data"]["locations"]]
 
 
 def format_date(dt):
@@ -184,7 +189,7 @@ def get_summary(token, start, end):
                         url="https://hrx-backend.sequoia.com/rtw/client/dashboard/summary?statStart=%s&statEnd=%s" % (
                             format_date(start), format_date(end)), headers=token_headers(token))
     out = set()
-    for stat in response.json()["data"]["weeklyStats"]:
+    for stat in response["data"]["weeklyStats"]:
         out.add(parse_date(stat["date"]))
     return out
 
@@ -194,7 +199,7 @@ def get_followings(token, start, end):
                         url="https://hrx-backend.sequoia.com/rtw/client/followings?startDate=%s&endDate=%s" % (
                             format_date(start), format_date(end)), headers=token_headers(token))
     out = []
-    followings = response.json()["data"]["followings"]
+    followings = response["data"]["followings"]
     if not followings:
         print("You are not following any coworkers.\n"
               "Add them in https://px.sequoia.com/workplace or the app, and they will appear calendar below.")
@@ -271,13 +276,14 @@ def do_inquiry(message, choices, default=None):
 def get_pending_tasks(token):
     response = api_call(method='GET', url="https://hrx-backend.sequoia.com/rtw/client/pending-task",
                         headers=token_headers(token))
-    return [x["taskId"] for x in response.json()["data"]["tasks"]]
+    return [x["taskId"] for x in response["data"]["tasks"]]
 
 
 def get_task(token, task_id):
-    response = api_call(method='GET', url="https://hrx-backend.sequoia.com/rtw/client/task/info?taskId=%s" % task_id,
+    response = api_call(method='GET',
+                        url="https://hrx-backend.sequoia.com/rtw/client/task/info?taskId=%s" % task_id,
                         headers=token_headers(token))
-    return response.json()["data"]
+    return response["data"]
 
 
 def respond_to_task(token, task_id, answers):
@@ -290,7 +296,7 @@ def get_floors(token, task_id):
     response = api_call(
         method='GET', url="https://hrx-backend.sequoia.com/rtw/client/space-bookings/floors?taskId=%s" % task_id,
         headers=token_headers(token))
-    return [(x["floorName"], x["floorId"]) for x in response.json()["data"]["floors"] if x["status"] == "active"]
+    return [(x["floorName"], x["floorId"]) for x in response["data"]["floors"] if x["status"] == "active"]
 
 
 def get_spaces(token, adjective, task_id, floor_id, start_time, end_time):
@@ -298,7 +304,7 @@ def get_spaces(token, adjective, task_id, floor_id, start_time, end_time):
            "&endTime=%s") % (
               adjective, task_id, floor_id, start_time, end_time)
     response = api_call(method='GET', url=url, headers=token_headers(token))
-    return response.json()["data"]["spaces"]
+    return response["data"]["spaces"]
 
 
 def reserve_space(token, task_id, start_time, end_time, space_id, user_id, reservation_id):
@@ -307,7 +313,7 @@ def reserve_space(token, task_id, start_time, end_time, space_id, user_id, reser
                         json={"taskId": task_id, "startTime": start_time, "endTime": end_time, "spaceId": space_id,
                               "userId": user_id, "reservationId": reservation_id}
                         )
-    return response.json()["data"]["label"]
+    return response["data"]["label"]
 
 
 def get_space(token, task, floor_id, config):
