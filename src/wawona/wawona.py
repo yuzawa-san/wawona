@@ -353,11 +353,14 @@ def get_space(token, task, floor_id, config):
     while True:
         unique_space_id = do_inquiry("Space", choices, default)
         if unique_space_id in available_space_set:
-            return unique_space_id
+            return (booked_spaces, unique_space_id)
         print("Invalid selection")
 
+def get_booking_map(bookings):
+    return {"%s %s" % (booking['firstName'], booking['lastName']): booking['label'] for booking in bookings}
 
 def run_tasks(token, config, pending_task_ids):
+    out = {}
     for pending_task_id in pending_task_ids:
         task = get_task(token, pending_task_id)
         task_id = task["taskId"]
@@ -373,6 +376,11 @@ def run_tasks(token, config, pending_task_ids):
             card_info.get("caption", "")
         ))
         if not task_data:
+            floor_id = task.get("floorId")
+            start_time = task.get("reservationStartTime")
+            end_time = task.get("reservationEndTime")
+            if floor_id and start_time and end_time:
+                out = get_booking_map(get_spaces(token, "booked", task_id, floor_id, start_time, end_time))
             continue
         if not inquirer.confirm("Complete task?", default=True):
             continue
@@ -406,16 +414,18 @@ def run_tasks(token, config, pending_task_ids):
             continue
         floors = get_floors(token, task_id)
         floor_id = do_inquiry("Floor", floors)
-        space_id = get_space(token, task, floor_id, config)
+        (bookings, space_id) = get_space(token, task, floor_id, config)
         start_time = task["reservationStartTime"]
         end_time = task["reservationEndTime"]
         user_id = task["recipientId"]
         reservation_id = task["reservationId"]
         space_label = reserve_space(token, task_id, start_time, end_time, space_id, user_id, reservation_id)
         print("You have booked '%s'" % space_label)
+        out = get_booking_map(bookings)
+    return out
 
 
-def print_weeks(weeks, today, booked, followings, choices):
+def print_weeks(weeks, today, booked, followings, choices, current_spaces):
     rows = []
     for week in weeks:
         label = "WEEK OF %s" % week[0].strftime('%d %b').upper()
@@ -432,6 +442,8 @@ def print_weeks(weeks, today, booked, followings, choices):
             booking_row.append(CHECK_MARK if is_booked else "")
             if not is_booked and day >= today:
                 choices.append((day.strftime('%a %d %b'), day))
+        header.append("Today's\nSpace" if today in week else "")
+        booking_row.append("")
         for name, days in followings:
             user_row = [name]
             add_row = False
@@ -442,6 +454,11 @@ def print_weeks(weeks, today, booked, followings, choices):
                 else:
                     entry = ""
                 user_row.append(entry)
+            space = current_spaces.get(name)
+            if space and today in week:
+                user_row.append(space)
+            else:
+                user_row.append("")
             if add_row:
                 rows.append(user_row)
     t = Texttable(max_width=0)
@@ -463,7 +480,7 @@ def run():
     except ApiException:
         token = get_token(config, True)
         pending_task_ids = get_pending_tasks(token)
-    run_tasks(token, config, pending_task_ids)
+    current_spaces = run_tasks(token, config, pending_task_ids)
     today = date.today()
     weekday = today.weekday()
     if weekday < 5:
@@ -481,7 +498,7 @@ def run():
         weekday = day.weekday()
         if weekday < 5:
             weeks[day_offset // 7].append(day)
-    print_weeks(weeks, today, booked, followings, choices)
+    print_weeks(weeks, today, booked, followings, choices, current_spaces)
     if not choices:
         return
 
@@ -505,7 +522,7 @@ def run():
         return
     check_tasks = add_reservations(token, location, to_book, config)
     booked = get_summary(token, start, end)
-    print_weeks(weeks, today, booked, [], [])
+    print_weeks(weeks, today, booked, [], [], {})
     if check_tasks:
         for i in range(5):
             print("Waiting for pending tasks...")
