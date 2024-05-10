@@ -33,7 +33,7 @@ KEYRING_EMAIL = "login.sequoia.com"
 KEYRING_TOKEN = "hrx-backend.sequoia.com"
 CHECK_MARK = "\u2705"
 CONFIG_VERSION = 1
-ME = "Me"
+YOU = "You"
 
 VERBOSE = False
 for arg in sys.argv:
@@ -362,7 +362,7 @@ def get_booking_map(bookings, space_id=-1):
     for booking in bookings:
         key = "%s %s" % (booking['firstName'], booking['lastName'])
         if space_id == booking["spaceId"]:
-            key = ME
+            key = YOU
         out[key] = booking['label']
     return out
 
@@ -429,7 +429,7 @@ def run_tasks(token, config, pending_task_ids):
         space_label = reserve_space(token, task_id, start_time, end_time, space_id, user_id, reservation_id)
         print("You have booked '%s'" % space_label)
         out = get_booking_map(bookings)
-        out[ME] = space_label
+        out[YOU] = space_label
     return out
 
 
@@ -438,7 +438,7 @@ def print_weeks(weeks, today, booked, followings, choices, current_spaces):
     for week in weeks:
         label = "WEEK OF %s" % week[0].strftime('%d %b').upper()
         header = [label]
-        booking_row = [ME]
+        booking_row = [YOU]
         rows.append(header)
         rows.append(booking_row)
         for day in week:
@@ -451,7 +451,7 @@ def print_weeks(weeks, today, booked, followings, choices, current_spaces):
             if not is_booked and day >= today:
                 choices.append((day.strftime('%a %d %b'), day))
         header.append("Today's\nSpace" if today in week else "")
-        booking_row.append(current_spaces.get(ME, ""))
+        booking_row.append(current_spaces.get(YOU, ""))
         for name, days in followings:
             user_row = [name]
             add_row = False
