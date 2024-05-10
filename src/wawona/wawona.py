@@ -33,6 +33,7 @@ KEYRING_EMAIL = "login.sequoia.com"
 KEYRING_TOKEN = "hrx-backend.sequoia.com"
 CHECK_MARK = "\u2705"
 CONFIG_VERSION = 1
+ME = "Me"
 
 VERBOSE = False
 for arg in sys.argv:
@@ -356,8 +357,14 @@ def get_space(token, task, floor_id, config):
             return (booked_spaces, unique_space_id)
         print("Invalid selection")
 
-def get_booking_map(bookings):
-    return {"%s %s" % (booking['firstName'], booking['lastName']): booking['label'] for booking in bookings}
+def get_booking_map(bookings, space_id=-1):
+    out = {}
+    for booking in bookings:
+        key = "%s %s" % (booking['firstName'], booking['lastName'])
+        if space_id == booking["spaceId"]:
+            key = ME
+        out[key] = booking['label']
+    return out
 
 def run_tasks(token, config, pending_task_ids):
     out = {}
@@ -380,7 +387,7 @@ def run_tasks(token, config, pending_task_ids):
             start_time = task.get("reservationStartTime")
             end_time = task.get("reservationEndTime")
             if floor_id and start_time and end_time:
-                out = get_booking_map(get_spaces(token, "booked", task_id, floor_id, start_time, end_time))
+                out = get_booking_map(get_spaces(token, "booked", task_id, floor_id, start_time, end_time), task.get("spaceId"))
             continue
         if not inquirer.confirm("Complete task?", default=True):
             continue
@@ -422,6 +429,7 @@ def run_tasks(token, config, pending_task_ids):
         space_label = reserve_space(token, task_id, start_time, end_time, space_id, user_id, reservation_id)
         print("You have booked '%s'" % space_label)
         out = get_booking_map(bookings)
+        out[ME] = space_label
     return out
 
 
@@ -430,7 +438,7 @@ def print_weeks(weeks, today, booked, followings, choices, current_spaces):
     for week in weeks:
         label = "WEEK OF %s" % week[0].strftime('%d %b').upper()
         header = [label]
-        booking_row = ["Me"]
+        booking_row = [ME]
         rows.append(header)
         rows.append(booking_row)
         for day in week:
@@ -443,7 +451,7 @@ def print_weeks(weeks, today, booked, followings, choices, current_spaces):
             if not is_booked and day >= today:
                 choices.append((day.strftime('%a %d %b'), day))
         header.append("Today's\nSpace" if today in week else "")
-        booking_row.append("")
+        booking_row.append(current_spaces.get(ME, ""))
         for name, days in followings:
             user_row = [name]
             add_row = False
