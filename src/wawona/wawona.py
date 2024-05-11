@@ -354,8 +354,9 @@ def get_space(token, task, floor_id, config):
     while True:
         unique_space_id = do_inquiry("Space", choices, default)
         if unique_space_id in available_space_set:
-            return (booked_spaces, unique_space_id)
+            return booked_spaces, unique_space_id
         print("Invalid selection")
+
 
 def get_booking_map(bookings, space_id=-1):
     out = {}
@@ -365,6 +366,7 @@ def get_booking_map(bookings, space_id=-1):
             key = YOU
         out[key] = booking['label']
     return out
+
 
 def run_tasks(token, config, pending_task_ids):
     out = {}
@@ -387,7 +389,8 @@ def run_tasks(token, config, pending_task_ids):
             start_time = task.get("reservationStartTime")
             end_time = task.get("reservationEndTime")
             if floor_id and start_time and end_time:
-                out = get_booking_map(get_spaces(token, "booked", task_id, floor_id, start_time, end_time), task.get("spaceId"))
+                out = get_booking_map(get_spaces(token, "booked", task_id, floor_id, start_time, end_time),
+                                      task.get("spaceId"))
             continue
         if not inquirer.confirm("Complete task?", default=True):
             continue
