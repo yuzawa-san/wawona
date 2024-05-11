@@ -450,8 +450,9 @@ def print_weeks(weeks, today, booked, followings, choices, current_spaces):
             booking_row.append(CHECK_MARK if is_booked else "")
             if not is_booked and day >= today:
                 choices.append((day.strftime('%a %d %b'), day))
-        header.append("Today's\nSpace" if today in week else "")
-        booking_row.append(current_spaces.get(YOU, ""))
+        if current_spaces:
+            header.append("Today's\nSpace" if today in week else "")
+            booking_row.append(current_spaces.get(YOU, ""))
         for name, days in followings:
             user_row = [name]
             add_row = False
@@ -462,11 +463,12 @@ def print_weeks(weeks, today, booked, followings, choices, current_spaces):
                 else:
                     entry = ""
                 user_row.append(entry)
-            space = current_spaces.get(name)
-            if space and today in week:
-                user_row.append(space)
-            else:
-                user_row.append("")
+            if current_spaces:
+                space = current_spaces.get(name)
+                if space and today in week:
+                    user_row.append(space)
+                else:
+                    user_row.append("")
             if add_row:
                 rows.append(user_row)
     t = Texttable(max_width=0)
