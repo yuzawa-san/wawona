@@ -305,7 +305,7 @@ def get_spaces(token, adjective, task_id, floor_id, start_time, end_time):
            "&endTime=%s") % (
               adjective, task_id, floor_id, start_time, end_time)
     response = api_call(method='GET', url=url, headers=token_headers(token))
-    return response["data"]["spaces"]
+    return response["data"].get("spaces",[])
 
 
 def reserve_space(token, task_id, start_time, end_time, space_id, user_id, reservation_id):
