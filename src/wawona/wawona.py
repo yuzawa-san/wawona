@@ -22,6 +22,7 @@ FLOOR_PLAN_COLS = 120
 COLOR_GREEN = "32"
 COLOR_YELLOW = "33"
 COLOR_RED = "31"
+COLOR_CYAN = "36"
 DOT = "\u25CF"
 
 BROWSER_HASH = "1032275734"
@@ -367,10 +368,11 @@ def draw_floor_plan(floor, spaces):
     for row in grid:
         print("".join(row))
     print(
-        "\033[32m%s\033[0m free    "
-        "\033[33m%s\033[0m booked by someone you are following    "
-        "\033[31m%s\033[0m booked" % (
-            DOT, DOT, DOT))
+        "\033[%sm%s\033[0m preferred    "
+        "\033[%sm%s\033[0m free    "
+        "\033[%sm%s\033[0m booked by someone you are following    "
+        "\033[%sm%s\033[0m booked" % (
+            COLOR_CYAN, DOT, COLOR_GREEN, DOT, COLOR_YELLOW, DOT, COLOR_RED, DOT))
 
 
 def get_space(token, task, floor, config, followings):
@@ -390,6 +392,7 @@ def get_space(token, task, floor, config, followings):
         space_id = available_space["spaceId"]
         unique_space_id = available_space["uniqueSpaceId"]
         if space_id == preferred_space_id:
+            available_space["color"] = COLOR_CYAN
             default = unique_space_id
         all_spaces.append(available_space)
         available_space_set.add(unique_space_id)
