@@ -16,6 +16,14 @@ from texttable import Texttable
 config_path = "%s/.config/wawona" % os.environ["HOME"]
 config_file = "%s/config.json" % config_path
 
+TERMINAL_CHAR_ASPECT_RATIO = 8 / 10
+FLOOR_PLAN_BUFFER = 4
+FLOOR_PLAN_COLS = 120
+COLOR_GREEN = "32"
+COLOR_YELLOW = "33"
+COLOR_RED = "31"
+DOT = "\u25CF"
+
 BROWSER_HASH = "1032275734"
 HEADERS = {
     'authority': 'hrx-backend.sequoia.com',
@@ -317,7 +325,55 @@ def reserve_space(token, task_id, start_time, end_time, space_id, user_id, reser
     return response["data"]["label"]
 
 
-def get_space(token, task, floor, config):
+def draw_floor_plan(floor, spaces):
+    if 'blueprintUrl' not in floor:
+        return
+    spaces = [x for x in spaces if 'Rx' in x]
+    if not spaces:
+        return
+
+    base_width = floor['baseWidth']
+    aspect_ratio = floor["aspectRatio"]
+    base_height = round(base_width * aspect_ratio)
+
+    min_x = base_width
+    min_y = base_height
+    max_x = 0
+    max_y = 0
+    for space in spaces:
+        x = space['Rx']
+        min_x = min(min_x, x)
+        max_x = max(max_x, x)
+        y = space['Ry']
+        min_y = min(min_y, y)
+        max_y = max(max_y, y)
+
+    new_width = (max_x - min_x)
+    new_height = (max_y - min_y)
+
+    w = min(FLOOR_PLAN_COLS, os.get_terminal_size()[0]) - FLOOR_PLAN_BUFFER
+    h = round(w * (new_height / new_width) * TERMINAL_CHAR_ASPECT_RATIO)
+
+    grid = []
+    for _ in range(h + FLOOR_PLAN_BUFFER):
+        grid.append([" "] * (w + FLOOR_PLAN_BUFFER))
+
+    for space in spaces:
+        x = round((space['Rx'] - min_x) / new_width * w)
+        y = round((space['Ry'] - min_y) / new_height * h)
+        color = space['color']
+        grid[y][x] = "\033[%sm%s\033[0m" % (color, DOT)
+
+    for row in grid:
+        print("".join(row))
+    print(
+        "\033[32m%s\033[0m free    "
+        "\033[33m%s\033[0m booked by someone you are following    "
+        "\033[31m%s\033[0m booked" % (
+            DOT, DOT, DOT))
+
+
+def get_space(token, task, floor, config, followings):
     floor_id = floor["floorId"]
     task_id = task["taskId"]
     start_time = task["reservationStartTime"]
@@ -330,6 +386,7 @@ def get_space(token, task, floor, config):
     all_spaces = []
     available_space_set = set()
     for available_space in available_spaces:
+        available_space["color"] = COLOR_GREEN
         space_id = available_space["spaceId"]
         unique_space_id = available_space["uniqueSpaceId"]
         if space_id == preferred_space_id:
@@ -341,17 +398,24 @@ def get_space(token, task, floor, config):
         space_id = booked_space["spaceId"]
         if space_id == preferred_space_id:
             default = booked_space["uniqueSpaceId"]
+        full_name = "%s %s" % (booked_space.get("firstName"), booked_space.get("lastName"))
+        booked_space["fullName"] = full_name
+        booked_space["color"] = COLOR_YELLOW if full_name in followings else COLOR_RED
         all_spaces.append(booked_space)
     all_spaces.sort(key=lambda s: [int(t) if t.isdigit() else t.lower() for t in re.split(r'(\d+)', s["label"])])
     choices = []
     for space in all_spaces:
         raw_label = space["label"]
-        first_name = space.get("firstName")
-        if first_name:
-            label = "\033[31m%s (%s %s)\033[0m" % (raw_label, first_name, space["lastName"])
-        else:
-            label = "\033[32m%s\033[0m" % raw_label
+        color = space["color"]
+        label: str = "\033[%sm%s\033[0m" % (color, raw_label)
+        full_name = space.get("fullName")
+        if full_name:
+            label = "\033[%sm%s (%s)\033[0m" % (color, raw_label, full_name)
         choices.append((label, space["uniqueSpaceId"]))
+    try:
+        draw_floor_plan(floor, all_spaces)
+    except Exception as e:
+        print("Failed to draw floor plan: ", e)
     while True:
         unique_space_id = do_inquiry("Space", choices, default)
         if unique_space_id in available_space_set:
@@ -369,7 +433,7 @@ def get_booking_map(bookings, space_id=-1):
     return out
 
 
-def run_tasks(token, config, pending_task_ids):
+def run_tasks(token, config, pending_task_ids, followings):
     out = {}
     for pending_task_id in pending_task_ids:
         task = get_task(token, pending_task_id)
@@ -425,7 +489,7 @@ def run_tasks(token, config, pending_task_ids):
             continue
         floors = get_floors(token, task_id)
         floor = do_inquiry("Floor", floors)
-        (bookings, space_id) = get_space(token, task, floor, config)
+        (bookings, space_id) = get_space(token, task, floor, config, followings)
         start_time = task["reservationStartTime"]
         end_time = task["reservationEndTime"]
         user_id = task["recipientId"]
@@ -494,7 +558,6 @@ def run():
     except ApiException:
         token = get_token(config, True)
         pending_task_ids = get_pending_tasks(token)
-    current_spaces = run_tasks(token, config, pending_task_ids)
     today = date.today()
     weekday = today.weekday()
     if weekday < 5:
@@ -505,6 +568,7 @@ def run():
     end = start + timedelta(days=days)
     booked = get_summary(token, start, end)
     followings = get_followings(token, start, end)
+    current_spaces = run_tasks(token, config, pending_task_ids, followings)
     choices = []
     weeks = [[], []]
     for day_offset in range(days):
@@ -543,7 +607,7 @@ def run():
             sleep(1)
             pending_task_ids = get_pending_tasks(token)
             if pending_task_ids:
-                run_tasks(token, config, pending_task_ids)
+                run_tasks(token, config, pending_task_ids, followings)
                 return
         print("Unable to find pending tasks.")
 
