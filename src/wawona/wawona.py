@@ -297,7 +297,7 @@ def get_floors(token, task_id):
     response = api_call(
         method='GET', url="https://hrx-backend.sequoia.com/rtw/client/space-bookings/floors?taskId=%s" % task_id,
         headers=token_headers(token))
-    return [(x["floorName"], x["floorId"]) for x in response["data"]["floors"] if x["status"] == "active"]
+    return [(x["floorName"], x) for x in response["data"]["floors"] if x["status"] == "active"]
 
 
 def get_spaces(token, adjective, task_id, floor_id, start_time, end_time):
@@ -317,7 +317,8 @@ def reserve_space(token, task_id, start_time, end_time, space_id, user_id, reser
     return response["data"]["label"]
 
 
-def get_space(token, task, floor_id, config):
+def get_space(token, task, floor, config):
+    floor_id = floor["floorId"]
     task_id = task["taskId"]
     start_time = task["reservationStartTime"]
     end_time = task["reservationEndTime"]
@@ -423,8 +424,8 @@ def run_tasks(token, config, pending_task_ids):
         if not task["spaceBookingEnabled"]:
             continue
         floors = get_floors(token, task_id)
-        floor_id = do_inquiry("Floor", floors)
-        (bookings, space_id) = get_space(token, task, floor_id, config)
+        floor = do_inquiry("Floor", floors)
+        (bookings, space_id) = get_space(token, task, floor, config)
         start_time = task["reservationStartTime"]
         end_time = task["reservationEndTime"]
         user_id = task["recipientId"]
