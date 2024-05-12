@@ -603,7 +603,7 @@ def run():
         return
     check_tasks = add_reservations(token, location, to_book, config)
     booked = get_summary(token, start, end)
-    print_weeks(weeks, today, booked, [], [], {})
+    print_weeks(weeks, today, booked, {}, [], {})
     if check_tasks:
         for i in range(5):
             print("Waiting for pending tasks...")
