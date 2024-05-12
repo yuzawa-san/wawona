@@ -66,7 +66,7 @@ Reservation Acknowledgement Pending:
  O O   O O   O O O O O
  O O   O O   O X O O O
 
-* preferred    O free    $ booked by someone you are following    # booked
+* preferred    O free    $ booked by someone you are following    X booked
 [?] Space: 
    Desk 5
    Desk 6
