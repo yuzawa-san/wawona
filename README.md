@@ -57,20 +57,30 @@ Reservation Acknowledgement Pending:
 [?] Complete task? (Y/n): 
 [?] I am healthy and not sick?: Yes (only choice)
 [?] Floor: Floor 2 (only choice)
+
+ X X
+ X X   X X
+ X O   O X   X O O O $
+ X X   O O   X * $ 0 X
+ O O   O O
+ O O   O O   O O X O O
+ O O   O O   O X O O O
+
+* preferred    O free    $ booked by someone you are following    # booked
 [?] Space: 
-   Desk 35
-   Desk 36
-   Desk 37
-   Desk 38
-   Desk 39
-   Desk 40
- > Desk 41
-   Desk 42 (Juan Fnulwoln)
-   Desk 43
-   Desk 44 (Maeve Melwosniwnaiko)
-   Desk 45
-   Desk 46
-   Desk 47
+   Desk 5
+   Desk 6
+   Desk 7
+   Desk 8
+   Desk 9
+   Desk 10
+ > Desk 11
+   Desk 12 (Juan Fnulwoln)
+   Desk 13
+   Desk 14 (Maeve Melwosniwnaiko)
+   Desk 15
+   Desk 16
+   Desk 17
 
 You have booked 'Desk 41'
 ```
