@@ -60,10 +60,10 @@ Reservation Acknowledgement Pending:
 
  X X
  X X   X X
- X O   O X   X O O O $
- X X   O O   X * $ 0 X
+ X O   O X   O O O O O
+ X X   O O   O * $ O $
  O O   O O
- O O   O O   O O X O O
+ O O   O O   O O O O O
  O O   O O   O X O O O
 
 * preferred    O free    $ booked by someone you are following    # booked
