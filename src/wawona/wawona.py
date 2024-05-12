@@ -19,10 +19,10 @@ config_file = "%s/config.json" % config_path
 TERMINAL_CHAR_ASPECT_RATIO = 8 / 10
 FLOOR_PLAN_BUFFER = 4
 FLOOR_PLAN_COLS = 120
-COLOR_GREEN = "32"
-COLOR_YELLOW = "33"
-COLOR_RED = "31"
-COLOR_CYAN = "36"
+COLOR_AVAILABLE = "32"
+COLOR_BOOKED_FOLLOWING = "36"
+COLOR_BOOKED = "31"
+COLOR_PREFERRED = "92"
 DOT = "\u25CF"
 
 BROWSER_HASH = "1032275734"
@@ -208,7 +208,7 @@ def get_followings(token, start, end):
     response = api_call(method='GET',
                         url="https://hrx-backend.sequoia.com/rtw/client/followings?startDate=%s&endDate=%s" % (
                             format_date(start), format_date(end)), headers=token_headers(token))
-    out = []
+    out = {}
     followings = response["data"]["followings"]
     if not followings:
         print("You are not following any coworkers.\n"
@@ -217,12 +217,12 @@ def get_followings(token, start, end):
         name = user["fullName"]
         reservations = user.get("reservationsMetadata", [])
         days = set()
+        out[name] = days
         if reservations:
             for reservation in reservations:
                 year, month, day = reservation["reservationStartTime"].split(" ")[0].split("-")
                 dt = date(int(year), int(month), int(day))
                 days.add(dt)
-            out.append((name, days))
     return out
 
 
@@ -372,7 +372,7 @@ def draw_floor_plan(floor, spaces):
         "\033[%sm%s\033[0m free    "
         "\033[%sm%s\033[0m booked by someone you are following    "
         "\033[%sm%s\033[0m booked" % (
-            COLOR_CYAN, DOT, COLOR_GREEN, DOT, COLOR_YELLOW, DOT, COLOR_RED, DOT))
+            COLOR_PREFERRED, DOT, COLOR_AVAILABLE, DOT, COLOR_BOOKED_FOLLOWING, DOT, COLOR_BOOKED, DOT))
 
 
 def get_space(token, task, floor, config, followings):
@@ -388,11 +388,11 @@ def get_space(token, task, floor, config, followings):
     all_spaces = []
     available_space_set = set()
     for available_space in available_spaces:
-        available_space["color"] = COLOR_GREEN
+        available_space["color"] = COLOR_AVAILABLE
         space_id = available_space["spaceId"]
         unique_space_id = available_space["uniqueSpaceId"]
         if space_id == preferred_space_id:
-            available_space["color"] = COLOR_CYAN
+            available_space["color"] = COLOR_PREFERRED
             default = unique_space_id
         all_spaces.append(available_space)
         available_space_set.add(unique_space_id)
@@ -403,7 +403,7 @@ def get_space(token, task, floor, config, followings):
             default = booked_space["uniqueSpaceId"]
         full_name = "%s %s" % (booked_space.get("firstName"), booked_space.get("lastName"))
         booked_space["fullName"] = full_name
-        booked_space["color"] = COLOR_YELLOW if full_name in followings else COLOR_RED
+        booked_space["color"] = COLOR_BOOKED_FOLLOWING if full_name in followings else COLOR_BOOKED
         all_spaces.append(booked_space)
     all_spaces.sort(key=lambda s: [int(t) if t.isdigit() else t.lower() for t in re.split(r'(\d+)', s["label"])])
     choices = []
@@ -524,7 +524,7 @@ def print_weeks(weeks, today, booked, followings, choices, current_spaces):
         if current_spaces:
             header.append("Today's\nSpace" if today in week else "")
             booking_row.append(current_spaces.get(YOU, ""))
-        for name, days in followings:
+        for name, days in followings.items():
             user_row = [name]
             add_row = False
             for day in week:
