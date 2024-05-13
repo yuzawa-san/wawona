@@ -60,7 +60,7 @@ Reservation Acknowledgement Pending:
 
  X X
  X X   X X
- X O   O X   O O O O O
+ X O   O X   O O O X O
  X X   O O   O * $ O $
  O O   O O
  O O   O O   O O O O O
@@ -71,7 +71,7 @@ Reservation Acknowledgement Pending:
    Desk 5
    Desk 6
    Desk 7
-   Desk 8
+   Desk 8 (Guillaume Rucpelzsva)
    Desk 9
    Desk 10
  > Desk 11
@@ -82,7 +82,7 @@ Reservation Acknowledgement Pending:
    Desk 16
    Desk 17
 
-You have booked 'Desk 41'
+You have booked 'Desk 11'
 ```
 
 ## Install
