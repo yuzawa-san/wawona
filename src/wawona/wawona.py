@@ -6,6 +6,12 @@ import sys
 from datetime import date, datetime, time, timedelta
 from os.path import isfile, isdir
 from time import sleep
+from urllib.parse import unquote
+
+from selenium import webdriver
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.chrome.options import Options
 
 import inquirer
 import keyring
@@ -38,7 +44,6 @@ HEADERS = {
     'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) '
                   'Chrome/122.0.0.0 Safari/537.36'
 }
-KEYRING_EMAIL = "login.sequoia.com"
 KEYRING_TOKEN = "hrx-backend.sequoia.com"
 CHECK_MARK = "\u2705"
 CONFIG_VERSION = 1
@@ -78,45 +83,29 @@ def api_call(method, url, **kwargs):
 
 
 def get_token(config, refresh=False):
-    email = config["email"]
-    token = keyring.get_password(KEYRING_TOKEN, email)
-    if token and not refresh:
-        return token
-    api_call(method='POST', url="https://hrx-backend.sequoia.com/idm/v1/contacts/verify-email", headers=HEADERS,
-             json={"email": email})
-    password = keyring.get_password(KEYRING_EMAIL, email)
-    if not password:
-        password = inquirer.password(message='Password')
-    login_json = api_call(method='POST', url="https://hrx-backend.sequoia.com/idm/users/login", headers=HEADERS,
-                          json={"email": email, "password": password, "browserHash": BROWSER_HASH,
-                                "userType": "employee"})
-    login_data = login_json["data"]
-    user_details = login_data["userDetails"]
-    token = user_details["apiToken"]
-    okta_status = user_details["oktaStatus"]
-    if okta_status == "MFA_CHALLENGE":
-        factors = login_data.get("factors")
-        if factors:
-            factor = factors[0]
-            print(
-                "Using MFA %s %s" % (factor.get("factorType", "unknown"), factor.get("profile", {}).get("phoneNumber")))
-        while True:
-            mfa_code = inquirer.text(message="MFA Code")
-            headers = {"apitoken": token}
-            headers.update(HEADERS)
-            try:
-                api_call(method='POST', url="https://hrx-backend.sequoia.com/idm/users/login/verify-mfa",
-                         headers=headers, json={"passCode": mfa_code, "browserHash": BROWSER_HASH})
-                break
-            except ApiException as e:
-                print("MFA Verification Failed", e)
-    elif okta_status != "SUCCESS":
-        # https://developer.okta.com/docs/reference/api/authn/#transaction-state
-        raise ApiException("Invalid okta status %s: "
-                           "Please authenticate via https://px.sequoia.com/workplace before retrying." % okta_status)
-    keyring.set_password(KEYRING_EMAIL, email, password)
-    keyring.set_password(KEYRING_TOKEN, email, token)
-    return token
+    token = keyring.get_password(KEYRING_TOKEN, KEYRING_TOKEN)
+    #if token and not refresh:
+        #return token
+    print("Loading auth flow in standalone Chrome...")
+    print("NOTE: If you get the alert with '“chromedriver” cannot be opened because the developer cannot be verified.', select 'Cancel' to proceed.")
+    print("PROTIP: Enable 'Remember Me' and 'Keep me signed in' and 'Trusted Device' to speed up subsequent logins.")
+    chrome_options = Options()
+    chrome_options.add_argument("user-data-dir=%s/selenium" % config_path)
+    driver = webdriver.Chrome(options=chrome_options)
+    driver.get("https://login.sequoia.com/?redirect=https://px.sequoia.com/workplace/")
+    try:
+        WebDriverWait(driver, 180).until(EC.url_to_be("https://px.sequoia.com/workplace/"))
+        cookies = driver.get_cookies()
+        if VERBOSE:
+            print("COOKIES", cookies)
+        for cookie in cookies:
+            if cookie["name"] == "_sc":
+                token = json.loads(unquote(cookie["value"]))["sessionToken"]
+                keyring.set_password(KEYRING_TOKEN, KEYRING_TOKEN, token)
+                return token
+        raise ApiException("Failed to fetch token")
+    finally:
+        driver.quit()
 
 
 def get_config():
@@ -132,10 +121,6 @@ def get_config():
         formatted = datetime.combine(date.today(), time(hour)).strftime(locale.nl_langinfo(locale.T_FMT_AMPM))
         hours.append((formatted, hour))
     questions = [
-        inquirer.Text(
-            "email",
-            message="Email",
-        ),
         # NOTE: this does not have location
         inquirer.Text(
             "preferred_space_id",
@@ -156,13 +141,9 @@ def get_config():
     ]
     answers = inquirer.prompt(questions)
     config.update(answers)
-    email = config["email"]
-    password = keyring.get_password(KEYRING_EMAIL, email)
-    if password:
-        keyring.delete_password(KEYRING_EMAIL, email)
-    token = keyring.get_password(KEYRING_TOKEN, email)
+    token = keyring.get_password(KEYRING_TOKEN, KEYRING_TOKEN)
     if token:
-        keyring.delete_password(KEYRING_TOKEN, email)
+        keyring.delete_password(KEYRING_TOKEN, KEYRING_TOKEN)
     # test configuration
     get_token(config)
     # only persist configuration if test worked

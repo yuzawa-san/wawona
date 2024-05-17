@@ -111,8 +111,9 @@ brew upgrade wawona
 ## Usage 
 
 - Run it from your terminal: `wawona`
-- On initial run, you will be asked provide configuration: email and password.
-- You may be prompted to for an MFA token periodically.
+- On initial run, you will be asked to provide configuration details and to do an initial login.
+- Login uses a standalone chrome powered by selenium.
+- Periodically, you will be asked to re-login.
 - Use the up/down arrows, spacebar, and return keys to select items in lists
 - Troubleshooting errors with `wawona --verbose`
 
@@ -133,7 +134,6 @@ rm -rf ~/.config/wawona/
 ## Notes
 
 - Not affliated with sequoia
-- Does not support SSO
 - Uses public endpoints discovered from the web UI
 - No warranty or stability guarantees, could break one day if something changes on their end
 - Password/token is stored in system keychain
