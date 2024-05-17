@@ -84,17 +84,17 @@ def api_call(method, url, **kwargs):
 
 def get_token(config, refresh=False):
     token = keyring.get_password(KEYRING_TOKEN, KEYRING_TOKEN)
-    #if token and not refresh:
-        #return token
+    if token and not refresh:
+        return token
     print("Loading auth flow in standalone Chrome...")
-    print("NOTE: If you get the alert with '“chromedriver” cannot be opened because the developer cannot be verified.', select 'Cancel' to proceed.")
+    print("NOTE: If you get the alert with 'chromedriver cannot be opened because the developer cannot be verified.', select 'Cancel' to proceed.")
     print("PROTIP: Enable 'Remember Me' and 'Keep me signed in' and 'Trusted Device' to speed up subsequent logins.")
     chrome_options = Options()
     chrome_options.add_argument("user-data-dir=%s/selenium" % config_path)
     driver = webdriver.Chrome(options=chrome_options)
     driver.get("https://login.sequoia.com/?redirect=https://px.sequoia.com/workplace/")
     try:
-        WebDriverWait(driver, 180).until(EC.url_to_be("https://px.sequoia.com/workplace/"))
+        WebDriverWait(driver, 300).until(EC.url_to_be("https://px.sequoia.com/workplace/"))
         cookies = driver.get_cookies()
         if VERBOSE:
             print("COOKIES", cookies)
