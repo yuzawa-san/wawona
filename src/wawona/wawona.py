@@ -8,15 +8,14 @@ from os.path import isfile, isdir
 from time import sleep
 from urllib.parse import unquote
 
-from selenium import webdriver
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.chrome.options import Options
-
 import inquirer
 import keyring
 import pytz
 import requests
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import WebDriverWait
 from texttable import Texttable
 
 config_path = "%s/.config/wawona" % os.environ["HOME"]
@@ -82,12 +81,13 @@ def api_call(method, url, **kwargs):
     return response_json
 
 
-def get_token(config, refresh=False):
+def get_token(refresh=False):
     token = keyring.get_password(KEYRING_TOKEN, KEYRING_TOKEN)
     if token and not refresh:
         return token
     print("Loading auth flow in standalone Chrome...")
-    print("NOTE: If you get the alert with 'chromedriver cannot be opened because the developer cannot be verified.', select 'Cancel' to proceed.")
+    print("NOTE: If you get the alert with 'chromedriver cannot be opened because the developer cannot be verified.',"
+          "select 'Cancel' to proceed.")
     print("PROTIP: Enable 'Remember Me' and 'Keep me signed in' and 'Trusted Device' to speed up subsequent logins.")
     chrome_options = Options()
     chrome_options.add_argument("user-data-dir=%s/selenium" % config_path)
@@ -145,7 +145,7 @@ def get_config():
     if token:
         keyring.delete_password(KEYRING_TOKEN, KEYRING_TOKEN)
     # test configuration
-    get_token(config)
+    get_token()
     # only persist configuration if test worked
     if not isdir(config_path):
         os.makedirs(config_path, exist_ok=True)
@@ -536,11 +536,11 @@ def run():
     version = "unknown" if not __version__ else "v%s" % __version__
     print("\U0001F332 \033[32mW A W O N A\033[0m \U0001F332\n\n%s - https://github.com/yuzawa-san/wawona\n" % version)
     config = get_config()
-    token = get_token(config)
+    token = get_token()
     try:
         pending_task_ids = get_pending_tasks(token)
     except ApiException:
-        token = get_token(config, True)
+        token = get_token(True)
         pending_task_ids = get_pending_tasks(token)
     today = date.today()
     weekday = today.weekday()
