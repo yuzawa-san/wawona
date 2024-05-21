@@ -9,7 +9,6 @@ from time import sleep
 from urllib.parse import unquote
 
 import inquirer
-import keyring
 import pytz
 import requests
 from selenium import webdriver
@@ -22,6 +21,7 @@ from webdriver_manager.chrome import ChromeDriverManager
 
 config_path = "%s/.config/wawona" % os.environ["HOME"]
 config_file = "%s/config.json" % config_path
+token_file = "%s/token.txt" % config_path
 
 TERMINAL_CHAR_ASPECT_RATIO = 8 / 10
 FLOOR_PLAN_BUFFER = 4
@@ -45,7 +45,6 @@ HEADERS = {
     'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) '
                   'Chrome/122.0.0.0 Safari/537.36'
 }
-KEYRING_TOKEN = "hrx-backend.sequoia.com"
 CHECK_MARK = "\u2705"
 CONFIG_VERSION = 1
 YOU = "You"
@@ -84,9 +83,11 @@ def api_call(method, url, **kwargs):
 
 
 def get_token(refresh=False):
-    token = keyring.get_password(KEYRING_TOKEN, KEYRING_TOKEN)
-    if token and not refresh:
-        return token
+    if not refresh and isfile(token_file):
+        with open(token_file) as f:
+            token = f.read().rstrip()
+            if token:
+                return token
     print("Loading auth flow in standalone Chrome...")
     print("NOTE: If you get the alert with 'chromedriver cannot be opened because the developer cannot be verified.',"
           "select 'Cancel' to proceed.")
@@ -103,7 +104,8 @@ def get_token(refresh=False):
         for cookie in cookies:
             if cookie["name"] == "_sc":
                 token = json.loads(unquote(cookie["value"]))["sessionToken"]
-                keyring.set_password(KEYRING_TOKEN, KEYRING_TOKEN, token)
+                with open(token_file, 'w') as f:
+                    f.write(token)
                 return token
         raise ApiException("Failed to fetch token")
     finally:
@@ -115,6 +117,8 @@ def get_config():
     if isfile(config_file):
         with open(config_file) as f:
             config = json.load(f)
+    if not isdir(config_path):
+        os.makedirs(config_path, exist_ok=True)
     if CONFIG_VERSION == int(config.get("version", "0")):
         return config
     config["version"] = str(CONFIG_VERSION)
@@ -143,14 +147,9 @@ def get_config():
     ]
     answers = inquirer.prompt(questions)
     config.update(answers)
-    token = keyring.get_password(KEYRING_TOKEN, KEYRING_TOKEN)
-    if token:
-        keyring.delete_password(KEYRING_TOKEN, KEYRING_TOKEN)
     # test configuration
-    get_token()
+    get_token(True)
     # only persist configuration if test worked
-    if not isdir(config_path):
-        os.makedirs(config_path, exist_ok=True)
     with open(config_file, 'w') as f:
         json.dump(config, f)
     return config

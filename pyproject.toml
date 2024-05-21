@@ -19,10 +19,9 @@ classifiers = [
   "Environment :: Console",
 ]
 dependencies = [
-  "requests>=2.31.0",
+  "requests>=2.32.1",
   "inquirer>=3.2.4",
   "texttable>=1.7.0",
-  "keyring>=25.2.1",
   "pytz>=2024.1",
   "selenium>=4.21.0",
   "webdriver-manager>=4.0.1",
