@@ -87,7 +87,7 @@ def get_token(refresh=False):
             if token:
                 return token
     print("Loading auth flow in standalone Chrome...")
-    print("NOTE: If you get the alert with 'chromedriver cannot be opened because the developer cannot be verified.',"
+    print("NOTE: If you get the alert with 'chromedriver cannot be opened because the developer cannot be verified.', "
           "select 'Cancel' to proceed.")
     print("PROTIP: Enable 'Remember Me' and 'Keep me signed in' and 'Trusted Device' to speed up subsequent logins.")
     chrome_options = Options()
