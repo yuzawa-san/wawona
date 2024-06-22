@@ -13,11 +13,9 @@ import pytz
 import requests
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.chrome.service import Service as ChromeService
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 from texttable import Texttable
-from webdriver_manager.chrome import ChromeDriverManager
 
 config_path = "%s/.config/wawona" % os.environ["HOME"]
 config_file = "%s/config.json" % config_path
@@ -94,7 +92,7 @@ def get_token(refresh=False):
     print("PROTIP: Enable 'Remember Me' and 'Keep me signed in' and 'Trusted Device' to speed up subsequent logins.")
     chrome_options = Options()
     chrome_options.add_argument("user-data-dir=%s/selenium" % config_path)
-    driver = webdriver.Chrome(service=ChromeService(ChromeDriverManager().install()), options=chrome_options)
+    driver = webdriver.Chrome(options=chrome_options)
     driver.get("https://login.sequoia.com/?redirect=https://px.sequoia.com/workplace/")
     try:
         WebDriverWait(driver, 300).until(EC.url_to_be("https://px.sequoia.com/workplace/"))
