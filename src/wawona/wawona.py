@@ -4,7 +4,7 @@ import os
 import re
 import sys
 from datetime import date, datetime, time, timedelta
-from os.path import isfile, isdir
+from os.path import isfile, isdir, exists
 from time import sleep
 from urllib.parse import unquote
 
@@ -87,9 +87,11 @@ def get_token(refresh=False):
             if token:
                 return token
     print("Loading auth flow in standalone Chrome...")
-    print("NOTE: If you get the alert with 'chromedriver cannot be opened because the developer cannot be verified.', "
-          "select 'Cancel' to proceed.")
+    if exists("/usr/local/bin/chromedriver") or exists("/usr/bin/chromedriver"):
+        print("NOTE: If you get the alert with 'chromedriver cannot be opened because the developer cannot be verified.', "
+              "select 'Cancel' to proceed.")
     print("PROTIP: Enable 'Remember Me' and 'Keep me signed in' and 'Trusted Device' to speed up subsequent logins.")
+    sleep(1)
     chrome_options = Options()
     chrome_options.add_argument("user-data-dir=%s/selenium" % config_path)
     driver = webdriver.Chrome(options=chrome_options)
